@@ -109,6 +109,15 @@ export function rowsToCsv(rows: ExpenseRow[]): string {
   return [header.map(csvField).join(","), ...lines].join("\r\n");
 }
 
+/** The command palette's expense results: newest first as given, capped so groups and actions stay in view. */
+export function searchExpenses<T extends TableExpense>(expenses: T[], query: string, limit = 5): T[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return [];
+  return expenses
+    .filter((e) => [e.description, e.groupName, e.paidByUserName].join(" ").toLowerCase().includes(needle))
+    .slice(0, limit);
+}
+
 /** "Weekend Trip" becomes "weekend-trip", for file names. */
 export function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");

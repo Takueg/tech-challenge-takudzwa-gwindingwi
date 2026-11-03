@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { Dialog, DialogCard, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/icon";
 import { useCurrentUser } from "@/context/current-user";
+import { searchExpenses } from "@/lib/expense-table";
+import { formatCents } from "@/lib/format";
 import { useTRPC } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +28,7 @@ export function CommandPalette({
   const { currentUserId, logout } = useCurrentUser();
   const userInput = { userId: currentUserId ?? "" };
   const { data: groups } = useQuery(trpc.groups.list.queryOptions(userInput));
+  const { data: expenses } = useQuery(trpc.expenses.list.queryOptions(userInput));
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -48,6 +51,13 @@ export function CommandPalette({
       hint: `${group.memberIds.length} members`,
       run: go(`/groups/${group.id}`),
     }));
+    const expenseItems: Item[] = searchExpenses(expenses ?? [], query).map((expense) => ({
+      id: `expense-${expense.id}`,
+      label: expense.description,
+      icon: "receipt_long",
+      hint: `${expense.groupName} · ${formatCents(expense.amountCents)}`,
+      run: go(`/groups/${expense.groupId}`),
+    }));
     const links: Item[] = [
       { id: "dashboard", label: "Dashboard", icon: "home", hint: "Totals, expenses", run: go("/") },
       { id: "settings", label: "Settings", icon: "settings", hint: "Profile, theme", run: go("/settings") },
@@ -66,9 +76,10 @@ export function CommandPalette({
     return [
       { title: "Actions", items: actions.filter(matches) },
       { title: "Groups", items: groupItems.filter(matches) },
+      { title: "Expenses", items: expenseItems },
       { title: "Go To", items: links.filter(matches) },
     ].filter((section) => section.items.length > 0);
-  }, [query, groups, navigate, logout, onClose, onAddExpense, onSettleUp, onNewGroup]);
+  }, [query, groups, expenses, navigate, logout, onClose, onAddExpense, onSettleUp, onNewGroup]);
 
   const flat = sections.flatMap((section) => section.items);
   const active = Math.min(activeIndex, Math.max(flat.length - 1, 0));
@@ -95,13 +106,13 @@ export function CommandPalette({
         className="flex flex-col gap-3 rounded-[20px] bg-dialog p-[18px] text-foreground"
       >
         <DialogTitle className="sr-only">Search and jump to</DialogTitle>
-        <DialogDescription className="sr-only">Jump to a group or run an action.</DialogDescription>
+        <DialogDescription className="sr-only">Jump to a group or an expense, or run an action.</DialogDescription>
         <div className="swl-field__box h-[52px]">
           <span aria-hidden="true" className="flex pl-[18px] text-field-text">
             <Icon name="search" size={20} />
           </span>
           <label htmlFor="pal-input" className="sr-only">
-            Search groups and actions
+            Search groups, expenses and actions
           </label>
           <input
             id="pal-input"
@@ -111,7 +122,7 @@ export function CommandPalette({
             aria-expanded="true"
             aria-controls="pal-results"
             aria-activedescendant={flat[active] ? `pal-${flat[active].id}` : undefined}
-            placeholder="Jump to a group or run an action…"
+            placeholder="Jump to a group, expense or action…"
             autoFocus
             autoComplete="off"
             value={query}
@@ -161,7 +172,7 @@ export function CommandPalette({
           ))}
           {flat.length === 0 && (
             <p role="status" className="m-0 px-3.5 py-7 text-center [font:400_15px/22px_var(--font-spartan)] text-muted-foreground">
-              Nothing matches “{query}”. Try a group name, or “add”.
+              Nothing matches “{query}”. Try a group, an expense, or “add”.
             </p>
           )}
         </div>

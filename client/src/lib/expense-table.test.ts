@@ -6,6 +6,7 @@ import {
   nextSort,
   paginate,
   rowsToCsv,
+  searchExpenses,
   slugify,
   sortRows,
   toRows,
@@ -229,3 +230,28 @@ describe("rowsToCsv dates", () => {
   });
 });
 
+describe("searchExpenses", () => {
+  const all = [
+    expense({ id: "a", description: "Groceries", groupName: "Flat" }),
+    expense({ id: "b", description: "Taxi", groupName: "Trip", paidByUserName: "Carol" }),
+    expense({ id: "c", description: "More groceries", groupName: "Trip" }),
+  ];
+  const ids = (query: string, limit?: number) => searchExpenses(all, query, limit).map((e) => e.id);
+
+  it("finds nothing until something is typed", () => {
+    expect(ids("  ")).toEqual([]);
+  });
+
+  it("matches the description, ignoring case and keeping the order given", () => {
+    expect(ids("GROCER")).toEqual(["a", "c"]);
+  });
+
+  it("matches the group and the payer", () => {
+    expect(ids("flat")).toEqual(["a"]);
+    expect(ids("carol")).toEqual(["b"]);
+  });
+
+  it("stops at the limit", () => {
+    expect(ids("groceries", 1)).toEqual(["a"]);
+  });
+});
