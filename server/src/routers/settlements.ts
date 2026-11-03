@@ -17,6 +17,7 @@ export const settlementsRouter = router({
     .mutation(({ input }) => {
       const group = db.groups.get(input.groupId);
       if (!group) throw new Error(`Group ${input.groupId} not found`);
+      if (group.archivedAt) throw new Error("Can't record a settlement in an archived group");
       if (input.fromUserId === input.toUserId) throw new Error("Payer and receiver must be different people");
 
       // Balances list every member plus any former member still owed or owing,

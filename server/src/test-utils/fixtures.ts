@@ -1,5 +1,5 @@
 import { db, nextId, type Expense, type ExpenseSplit, type Group, type Settlement, type User } from "../lib/db.js";
-import type { NetBalance } from "../lib/balances.js";
+import { computeNetBalances, simplifyDebts, type NetBalance } from "../lib/balances.js";
 import { EqualSplitStrategy } from "../lib/split-strategies/equal-split-strategy.js";
 
 const equalSplit = new EqualSplitStrategy();
@@ -81,6 +81,18 @@ export function addSettlement(
   };
   db.settlements.set(settlement.id, settlement);
   return settlement;
+}
+
+/** Pays every suggested transfer, leaving the group fully settled. */
+export function settleUp(group: Group): void {
+  for (const transfer of simplifyDebts(computeNetBalances(group.id))) {
+    addSettlement(
+      group,
+      db.users.get(transfer.fromUserId) as User,
+      db.users.get(transfer.toUserId) as User,
+      transfer.amountCents
+    );
+  }
 }
 
 export function netOf(balances: NetBalance[], user: User): number | undefined {

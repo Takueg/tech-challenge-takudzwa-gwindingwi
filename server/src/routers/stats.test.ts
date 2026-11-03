@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Group, User } from "../lib/db.js";
 import { testCaller } from "../test-utils/caller.js";
-import { addExpense, addSettlement, makeGroup, makeUser, resetDb } from "../test-utils/fixtures.js";
+import { addExpense, addSettlement, makeGroup, makeUser, resetDb, settleUp } from "../test-utils/fixtures.js";
 
 let alice: User, bob: User;
 let group: Group, other: Group;
@@ -46,6 +46,43 @@ describe("stats.overview", () => {
     await caller.groups.delete({ groupId: group.id });
 
     expect(await caller.stats.overview()).toEqual({ groupCount: 1, expenseCount: 1, totalCents: 2500 });
+  });
+
+  it("agrees with the visible group list once a group is archived", async () => {
+    const caller = testCaller();
+    addExpense(group, alice, 1000);
+    addExpense(other, bob, 2500);
+    settleUp(group);
+
+    await caller.groups.archive({ groupId: group.id });
+
+    const visible = await caller.groups.list();
+    const overview = await caller.stats.overview();
+    expect(overview.groupCount).toBe(visible.length);
+    expect(overview.totalCents).toBe(visible.reduce((sum, g) => sum + g.totalCents, 0));
+  });
+});
+
+describe("stats after archiving", () => {
+  it("excludes the archived group's expenses everywhere, and restores them on unarchive", async () => {
+    const caller = testCaller();
+    const archivedExpense = addExpense(group, alice, 1000);
+    const keptExpense = addExpense(other, bob, 2500);
+    settleUp(group);
+
+    await caller.groups.archive({ groupId: group.id });
+
+    expect(await caller.stats.overview()).toEqual({ groupCount: 1, expenseCount: 1, totalCents: 2500 });
+    expect((await caller.stats.recentExpenses()).map((e) => e.id)).toEqual([keptExpense.id]);
+    expect((await caller.stats.leaderboard()).map((entry) => entry.userId)).toEqual([bob.id]);
+
+    await caller.groups.unarchive({ groupId: group.id });
+
+    expect(await caller.stats.overview()).toEqual({ groupCount: 2, expenseCount: 2, totalCents: 3500 });
+    expect((await caller.stats.recentExpenses()).map((e) => e.id).sort()).toEqual(
+      [archivedExpense.id, keptExpense.id].sort()
+    );
+    expect((await caller.stats.leaderboard()).map((entry) => entry.userId)).toEqual([bob.id, alice.id]);
   });
 });
 

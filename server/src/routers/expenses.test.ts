@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db, nextId, type Group, type User } from "../lib/db.js";
 import { testCaller } from "../test-utils/caller.js";
-import { addExpense, addSettlement, makeUser, netOf, sortedByUser, sumNet } from "../test-utils/fixtures.js";
+import { addExpense, addSettlement, makeUser, netOf, settleUp, sortedByUser, sumNet } from "../test-utils/fixtures.js";
 
 let group: Group;
 let alice: User, bob: User, carol: User;
@@ -465,5 +465,77 @@ describe("expenses.previewBalances", () => {
     await expect(
       testCaller().expenses.previewBalances({ groupId: "missing", amountCents: 100, paidByUserId: alice.id })
     ).rejects.toThrow(/not found/i);
+  });
+});
+
+describe("expenses in an archived group", () => {
+  it("are left out of search until the group is unarchived", async () => {
+    const caller = testCaller();
+    const expense = addExpense(group, alice, 100, { description: "Dinner" });
+    settleUp(group);
+
+    await caller.groups.archive({ groupId: group.id });
+    expect(await caller.expenses.search({ query: "dinner" })).toEqual([]);
+
+    await caller.groups.unarchive({ groupId: group.id });
+    expect((await caller.expenses.search({ query: "dinner" })).map((e) => e.id)).toEqual([expense.id]);
+  });
+
+  it("can't be edited, deleted or given a receipt", async () => {
+    const caller = testCaller();
+    const expense = addExpense(group, alice, 3000, { description: "Dinner" });
+    settleUp(group);
+    await caller.groups.archive({ groupId: group.id });
+
+    await expect(
+      caller.expenses.update({ expenseId: expense.id, description: "Edit", amountCents: 100 })
+    ).rejects.toThrow(/archived/i);
+    await expect(caller.expenses.delete({ expenseId: expense.id })).rejects.toThrow(/archived/i);
+    await expect(caller.expenses.uploadReceipt({ expenseId: expense.id, receiptUrl: "x" })).rejects.toThrow(/archived/i);
+
+    expect(db.expenses.get(expense.id)).toMatchObject({ description: "Dinner", amountCents: 3000 });
+    expect(db.expenses.get(expense.id)?.receiptUrl).toBeUndefined();
+  });
+
+  it("can be edited again once unarchived", async () => {
+    const caller = testCaller();
+    const expense = addExpense(group, alice, 3000);
+    settleUp(group);
+    await caller.groups.archive({ groupId: group.id });
+    await caller.groups.unarchive({ groupId: group.id });
+
+    const updated = await caller.expenses.update({
+      expenseId: expense.id,
+      description: expense.description,
+      amountCents: 6000,
+    });
+
+    expect(updated.amountCents).toBe(6000);
+  });
+
+  it("can't be added to with expenses.create", async () => {
+    const caller = testCaller();
+    await caller.groups.archive({ groupId: group.id });
+
+    await expect(caller.expenses.create(createInput())).rejects.toThrow(/archived/i);
+    expect(db.expenses.size).toBe(0);
+  });
+
+  it("can't be added to with quickAdd.create", async () => {
+    const caller = testCaller();
+    await caller.groups.archive({ groupId: group.id });
+
+    await expect(caller.quickAdd.create(createInput())).rejects.toThrow(/archived/i);
+    expect(db.expenses.size).toBe(0);
+  });
+
+  it("can be added to again once unarchived, without inheriting the archived state", async () => {
+    const caller = testCaller();
+    await caller.groups.archive({ groupId: group.id });
+    await caller.groups.unarchive({ groupId: group.id });
+
+    const expense = await caller.expenses.create(createInput());
+
+    expect(expense.archivedAt).toBeUndefined();
   });
 });

@@ -1,9 +1,10 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTRPC } from "@/lib/trpc";
+import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
 import { useCurrentUser } from "@/context/current-user";
 import { formatCents } from "@/lib/format";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,28 +16,24 @@ import { SettleUpDialog } from "@/components/app/settle-up-dialog";
 import { ManageMembers } from "@/components/app/manage-members";
 import { EditExpenseDialog } from "@/components/app/edit-expense-dialog";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
+import { UnarchiveGroupButton } from "@/components/app/unarchive-group-button";
 
 export function GroupDetailPage() {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
+  const invalidateExpenseData = useInvalidateExpenseData();
   const { currentUserId } = useCurrentUser();
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [cantDeleteOpen, setCantDeleteOpen] = useState(false);
   const [deleteGroupOpen, setDeleteGroupOpen] = useState(false);
 
-  const { data, isLoading } = useQuery({
-    ...trpc.groups.detail.queryOptions({ groupId: groupId! }),
-    // Avoid refetching this on every tab focus — it's a lot of derived data to recompute.
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
+  const { data, isLoading } = useQuery(trpc.groups.detail.queryOptions({ groupId: groupId! }));
 
   const deleteGroup = useMutation(
     trpc.groups.delete.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: trpc.groups.list.queryKey() });
+        invalidateExpenseData();
         navigate("/");
       },
     })
@@ -45,8 +42,11 @@ export function GroupDetailPage() {
   const archiveGroup = useMutation(
     trpc.groups.archive.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: trpc.groups.list.queryKey() });
+        invalidateExpenseData();
         navigate("/");
+      },
+      onError: (error) => {
+        toast.error(error.message);
       },
     })
   );
@@ -54,7 +54,7 @@ export function GroupDetailPage() {
   const deleteExpense = useMutation(
     trpc.expenses.delete.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: trpc.groups.detail.queryKey({ groupId: groupId! }) });
+        invalidateExpenseData();
         toast.success("Expense deleted");
       },
       onError: () => {
@@ -77,6 +77,18 @@ export function GroupDetailPage() {
   const nameOf = (userId: string) => members.find((m) => m.id === userId)?.name ?? "Unknown";
   const headerTotalCents = expenses.reduce((sum, e) => sum + e.amountCents, 0);
   const categoryTotalCents = Object.values(categoryTotals).reduce((sum, c) => sum + c, 0);
+
+  if (group.archivedAt) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-xl font-semibold">{group.name}</h1>
+        <p className="text-sm text-muted-foreground">
+          This group is archived, so its expenses are hidden. Unarchive it to see them again.
+        </p>
+        <UnarchiveGroupButton groupId={group.id} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -134,7 +146,6 @@ export function GroupDetailPage() {
                 <div className="flex items-center gap-3">
                   <span className="font-medium">{formatCents(expense.amountCents)}</span>
                   <EditExpenseDialog
-                    groupId={group.id}
                     expenseId={expense.id}
                     currentDescription={expense.description}
                     currentAmountCents={expense.amountCents}

@@ -2,13 +2,14 @@ import { z } from "zod";
 import { router, publicProcedure } from "../trpc.js";
 import { db, type Expense } from "../lib/db.js";
 import { detectExpenseCategory } from "../lib/category.js";
-import { computeEqualSplits, createExpense, createExpenseInput } from "../lib/expense-service.js";
+import { computeEqualSplits, createExpense, createExpenseInput, listActiveExpenses } from "../lib/expense-service.js";
 import { amountCentsSchema, nonBlankStringSchema } from "../lib/schemas.js";
 import { computeNetBalances, simplifyDebts } from "../lib/balances.js";
 
-function requireExpense(expenseId: string): Expense {
+function requireEditableExpense(expenseId: string): Expense {
   const expense = db.expenses.get(expenseId);
   if (!expense) throw new Error(`Expense ${expenseId} not found`);
+  if (expense.archivedAt) throw new Error("Can't change an expense in an archived group");
   return expense;
 }
 
@@ -16,7 +17,7 @@ export const expensesRouter = router({
   search: publicProcedure.input(z.object({ query: z.string() })).query(({ input }) => {
     const needle = input.query.trim().toLowerCase();
     if (!needle) return [];
-    return Array.from(db.expenses.values())
+    return listActiveExpenses()
       .filter((e) => e.description.toLowerCase().includes(needle))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }),
@@ -56,7 +57,7 @@ export const expensesRouter = router({
   uploadReceipt: publicProcedure
     .input(z.object({ expenseId: z.string(), receiptUrl: z.string() }))
     .mutation(({ input }) => {
-      const expense = requireExpense(input.expenseId);
+      const expense = requireEditableExpense(input.expenseId);
       expense.receiptUrl = input.receiptUrl;
       return expense;
     }),
@@ -70,12 +71,12 @@ export const expensesRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const before = requireExpense(input.expenseId);
+      const before = requireEditableExpense(input.expenseId);
       const category =
         input.description === before.description ? before.category : await detectExpenseCategory(input.description);
 
-      // Looked up again because the expense may have been deleted during detection.
-      const expense = requireExpense(input.expenseId);
+      // Looked up again because the expense may have been deleted or archived during detection.
+      const expense = requireEditableExpense(input.expenseId);
       if (input.amountCents !== expense.amountCents) {
         // Re-split across the people on this expense, who may differ from today's members.
         expense.splits = computeEqualSplits(
@@ -91,7 +92,7 @@ export const expensesRouter = router({
     }),
 
   delete: publicProcedure.input(z.object({ expenseId: z.string() })).mutation(({ input }) => {
-    const expense = requireExpense(input.expenseId);
+    const expense = requireEditableExpense(input.expenseId);
     db.expenses.delete(input.expenseId);
     const cached = db.groupExpenseCache.get(expense.groupId) ?? [];
     db.groupExpenseCache.set(

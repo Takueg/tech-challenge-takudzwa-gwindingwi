@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import Select from "react-select";
 import toast from "react-hot-toast";
 import { useTRPC } from "@/lib/trpc";
+import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
 import { useCurrentUser } from "@/context/current-user";
 import { parseAmountToCents } from "@/lib/parse-amount";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,7 @@ import type { Group } from "server/src/lib/db.js";
 
 export function QuickAddExpense({ groups }: { groups: Group[] }) {
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
+  const invalidateExpenseData = useInvalidateExpenseData();
   const { currentUserId } = useCurrentUser();
   const [groupId, setGroupId] = useState("");
   const [description, setDescription] = useState("");
@@ -19,8 +20,7 @@ export function QuickAddExpense({ groups }: { groups: Group[] }) {
   const quickAdd = useMutation(
     trpc.quickAdd.create.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: trpc.groups.list.queryKey() });
-        queryClient.invalidateQueries({ queryKey: trpc.stats.overview.queryKey() });
+        invalidateExpenseData();
         setDescription("");
         setAmount("");
       },

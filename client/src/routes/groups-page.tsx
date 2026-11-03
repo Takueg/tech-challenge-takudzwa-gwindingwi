@@ -8,6 +8,7 @@ import { QuickAddExpense } from "@/components/app/quick-add-expense";
 import { RecentExpenses } from "@/components/app/recent-expenses";
 import { ExpenseSearch } from "@/components/app/expense-search";
 import { Leaderboard } from "@/components/app/leaderboard";
+import { ArchivedGroups } from "@/components/app/archived-groups";
 
 export function GroupsPage() {
   const trpc = useTRPC();
@@ -67,6 +68,8 @@ export function GroupsPage() {
           );
         })}
       </div>
+
+      <ArchivedGroups />
     </div>
   );
 }

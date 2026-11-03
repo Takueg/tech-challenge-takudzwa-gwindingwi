@@ -11,6 +11,11 @@ export const createExpenseInput = z.object({
   paidByUserId: z.string(),
 });
 
+/** Expenses for app-wide views. Balances and group detail read every expense, archived or not. */
+export function listActiveExpenses(): Expense[] {
+  return Array.from(db.expenses.values()).filter((expense) => !expense.archivedAt);
+}
+
 export function computeEqualSplits(amountCents: number, memberIds: string[]): ExpenseSplit[] {
   return splitStrategyRegistry.split("equal", { amountCents, memberIds });
 }
@@ -23,6 +28,7 @@ export async function createExpense(input: z.infer<typeof createExpenseInput>): 
 
   const group = db.groups.get(input.groupId);
   if (!group) throw new Error(`Group ${input.groupId} not found`);
+  if (group.archivedAt) throw new Error("Can't add an expense to an archived group");
   if (!group.memberIds.includes(input.paidByUserId)) {
     throw new Error("Payer must be a member of the group");
   }

@@ -2,37 +2,34 @@ import { z } from "zod";
 import { router, publicProcedure } from "../trpc.js";
 import { db, nextId, toPublicUser, type Group } from "../lib/db.js";
 import { computeNetBalances, simplifyDebts } from "../lib/balances.js";
+import { archiveGroup, unarchiveGroup } from "../lib/group-service.js";
 import { nonBlankStringSchema } from "../lib/schemas.js";
 
+function listGroupsWithTotals(includeGroup: (group: Group) => boolean) {
+  return Array.from(db.groups.values())
+    .filter(includeGroup)
+    .map((group) => {
+      let expenseCount = 0;
+      let totalCents = 0;
+      for (const expense of db.expenses.values()) {
+        if (expense.groupId !== group.id) continue;
+        expenseCount += 1;
+        totalCents += expense.amountCents;
+      }
+      return { ...group, expenseCount, totalCents };
+    });
+}
+
 export const groupsRouter = router({
-  list: publicProcedure.query(() => {
-    return Array.from(db.groups.values())
-      .filter((group) => !group.archivedAt)
-      .map((group) => {
-        let expenseCount = 0;
-        let totalCents = 0;
-        for (const expense of db.expenses.values()) {
-          if (expense.groupId !== group.id) continue;
-          expenseCount += 1;
-          totalCents += expense.amountCents;
-        }
-        return { ...group, expenseCount, totalCents };
-      });
-  }),
+  list: publicProcedure.query(() => listGroupsWithTotals((group) => !group.archivedAt)),
 
-  archive: publicProcedure.input(z.object({ groupId: z.string() })).mutation(({ input }) => {
-    const group = db.groups.get(input.groupId);
-    if (!group) throw new Error(`Group ${input.groupId} not found`);
-    group.archivedAt = new Date().toISOString();
-    return group;
-  }),
+  listArchived: publicProcedure.query(() => listGroupsWithTotals((group) => Boolean(group.archivedAt))),
 
-  unarchive: publicProcedure.input(z.object({ groupId: z.string() })).mutation(({ input }) => {
-    const group = db.groups.get(input.groupId);
-    if (!group) throw new Error(`Group ${input.groupId} not found`);
-    group.archivedAt = undefined;
-    return group;
-  }),
+  archive: publicProcedure.input(z.object({ groupId: z.string() })).mutation(({ input }) => archiveGroup(input.groupId)),
+
+  unarchive: publicProcedure
+    .input(z.object({ groupId: z.string() }))
+    .mutation(({ input }) => unarchiveGroup(input.groupId)),
 
   create: publicProcedure
     .input(

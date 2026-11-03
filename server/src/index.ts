@@ -28,7 +28,7 @@ app.get("/export/groups/:groupId.csv", (req, res) => {
   }
 
   const expenses = Array.from(db.expenses.values())
-    .filter((e) => e.groupId === group.id)
+    .filter((e) => e.groupId === group.id && !e.archivedAt)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   const rows = [

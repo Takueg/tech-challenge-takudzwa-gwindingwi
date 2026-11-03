@@ -87,6 +87,16 @@ describe("settlements.create", () => {
     expect(sumNet(balances)).toBe(0);
   });
 
+  it("rejects a settlement in an archived group, since it would create a new debt", async () => {
+    const caller = testCaller();
+    await caller.groups.archive({ groupId: group.id });
+
+    await expect(
+      caller.settlements.create({ groupId: group.id, fromUserId: bob.id, toUserId: alice.id, amountCents: 100 })
+    ).rejects.toThrow(/archived/i);
+    expect(db.settlements.size).toBe(0);
+  });
+
   it("rejects paying yourself", async () => {
     await expect(
       testCaller().settlements.create({ groupId: group.id, fromUserId: bob.id, toUserId: bob.id, amountCents: 100 })

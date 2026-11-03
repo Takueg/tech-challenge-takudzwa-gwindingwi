@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
 import { parseAmountToCents } from "@/lib/parse-amount";
 import { formatCents } from "@/lib/format";
 import type { PublicUser } from "server/src/lib/db.js";
@@ -26,6 +27,7 @@ export function AddExpenseDialog({
   members: PublicUser[];
 }) {
   const trpc = useTRPC();
+  const invalidateExpenseData = useInvalidateExpenseData();
   const [open, setOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
@@ -34,8 +36,7 @@ export function AddExpenseDialog({
   const createExpense = useMutation(
     trpc.expenses.create.mutationOptions({
       onSuccess: () => {
-        // Deliberately no invalidateQueries here — see #23. Closing/clearing
-        // the form is its own, separate concern from whether the list refreshes.
+        invalidateExpenseData();
         setOpen(false);
         setDescription("");
         setAmount("");
