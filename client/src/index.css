@@ -619,7 +619,7 @@
 
   /* Confirm dialog */
   .swl-dialog {
-    width: 339px;
+    width: 480px;
     max-width: 100%;
     box-sizing: border-box;
     margin: auto;
@@ -650,7 +650,8 @@
   }
   .swl-dialog__actions {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap-reverse;
+    width: 100%;
     gap: 12px;
     margin-top: 18px;
   }

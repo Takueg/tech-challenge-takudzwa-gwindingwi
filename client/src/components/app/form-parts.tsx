@@ -64,7 +64,9 @@ export function FormSummary({ children }: { children: ReactNode }) {
   );
 }
 
-/** Dialog buttons: primary stacked above secondary, each 218px. */
+const BUTTON = "min-w-0 flex-[1_1_160px] px-2";
+
+/** Dialog buttons, side by side and equal width. On a narrow screen they wrap with the primary on top. */
 export function DialogActions({
   submitLabel,
   pending,
@@ -77,12 +79,12 @@ export function DialogActions({
   cancelLabel?: string;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3">
-      <Button type="submit" width={218} disabled={pending}>
-        {submitLabel}
-      </Button>
-      <Button variant="secondary" width={218} onClick={onCancel}>
+    <div className="flex flex-wrap-reverse gap-3">
+      <Button variant="secondary" className={BUTTON} onClick={onCancel}>
         {cancelLabel}
+      </Button>
+      <Button type="submit" className={BUTTON} disabled={pending}>
+        {submitLabel}
       </Button>
     </div>
   );

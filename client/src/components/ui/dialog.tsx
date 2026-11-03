@@ -40,7 +40,7 @@ function DialogCard({
   );
 }
 
-/** Form dialog anatomy: white card, radius 20, padding 32/32/28, title, subtitle and a 44px close. */
+/** Form dialog anatomy: white card, radius 20, padding 32/32/28, a 44px close, and a title and subtitle inset to line up with the field labels. */
 function DialogContent({
   title,
   subtitle,
@@ -56,7 +56,7 @@ function DialogContent({
       {...props}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5 pl-[18px]">
           <DialogPrimitive.Title className="m-0 [font:700_20px/30px_var(--font-poppins)] text-dialog-title">
             {title}
           </DialogPrimitive.Title>
