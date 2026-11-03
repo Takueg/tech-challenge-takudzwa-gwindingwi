@@ -10,6 +10,13 @@ export type User = {
   avatarUrl?: string;
 };
 
+export type PublicUser = Omit<User, "password">;
+
+/** Every user leaving the API goes through this, so the password never does. */
+export function toPublicUser({ password: _password, ...publicUser }: User): PublicUser {
+  return publicUser;
+}
+
 export type Group = {
   id: string;
   name: string;

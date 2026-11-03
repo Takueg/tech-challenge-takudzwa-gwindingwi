@@ -43,7 +43,7 @@ export function LoginPage() {
                   placeholder="alice"
                   autoFocus
                 />
-                <p className="text-xs text-muted-foreground">Demo users: alice, bob, carol</p>
+                <p className="text-xs text-muted-foreground">Demo users: alice, bob, carol (password: username + 123)</p>
               </div>
               <Button
                 className="w-full"
@@ -81,7 +81,7 @@ export function LoginPage() {
                 Back
               </button>
               {login.isError && (
-                <p className="text-center text-xs text-red-600">Unknown username</p>
+                <p className="text-center text-xs text-red-600">Unknown username or password</p>
               )}
             </div>
           )}

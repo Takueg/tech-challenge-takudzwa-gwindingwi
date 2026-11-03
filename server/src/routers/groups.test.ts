@@ -275,6 +275,11 @@ describe("groups.detail", () => {
     await expect(testCaller().groups.detail({ groupId: "missing" })).rejects.toThrow(/not found/i);
   });
 
+  it("does not expose member passwords", async () => {
+    const detail = await testCaller().groups.detail({ groupId: group.id });
+    for (const member of detail.members) expect(member).not.toHaveProperty("password");
+  });
+
   it("orders expenses and settlements newest first", async () => {
     const oldest = addExpense(group, alice, 100, { createdAt: "2026-01-01T00:00:00.000Z" });
     const newest = addExpense(group, alice, 100, { createdAt: "2026-03-01T00:00:00.000Z" });

@@ -18,6 +18,11 @@ describe("users.list", () => {
     const users = await testCaller().users.list();
     expect(users.map((u) => u.name)).toEqual(["Alice", "Bob"]);
   });
+
+  it("does not expose passwords", async () => {
+    const users = await testCaller().users.list();
+    for (const user of users) expect(user).not.toHaveProperty("password");
+  });
 });
 
 describe("users.create", () => {
@@ -28,6 +33,15 @@ describe("users.create", () => {
     expect(created).toMatchObject({ name: "Dana", email: "dana@test.com", username: "dana" });
     expect(db.users.has(created.id)).toBe(true);
     expect((await caller.users.list()).map((u) => u.id)).toContain(created.id);
+  });
+
+  it("does not return the password in the response", async () => {
+    const created = await testCaller().users.create(validInput);
+    expect(created).not.toHaveProperty("password");
+  });
+
+  it("rejects a username that is already taken", async () => {
+    await expect(testCaller().users.create({ ...validInput, username: "alice" })).rejects.toThrow();
   });
 
   it.each([
@@ -53,6 +67,11 @@ describe("users.update", () => {
 
     expect(updated).toMatchObject({ name: "Alicia", email: "alicia@test.com", bio: "Hello" });
     expect(db.users.get(alice.id)?.name).toBe("Alicia");
+  });
+
+  it("does not return the password in the response", async () => {
+    const updated = await testCaller().users.update({ userId: alice.id, name: "Alicia", email: "alicia@test.com" });
+    expect(updated).not.toHaveProperty("password");
   });
 
   it("renames the user on expenses they paid for, and nobody else's", async () => {
@@ -88,6 +107,11 @@ describe("users.updateAvatar", () => {
     const updated = await testCaller().users.updateAvatar({ userId: alice.id, avatarUrl: "data:image/png;base64,AAA" });
     expect(updated.avatarUrl).toBe("data:image/png;base64,AAA");
     expect(db.users.get(alice.id)?.avatarUrl).toBe("data:image/png;base64,AAA");
+  });
+
+  it("does not return the password in the response", async () => {
+    const updated = await testCaller().users.updateAvatar({ userId: alice.id, avatarUrl: "x" });
+    expect(updated).not.toHaveProperty("password");
   });
 
   it("rejects an unknown user", async () => {

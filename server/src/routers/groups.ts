@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../trpc.js";
-import { db, nextId, type Group } from "../lib/db.js";
+import { db, nextId, toPublicUser, type Group } from "../lib/db.js";
 import { computeNetBalances, simplifyDebts } from "../lib/balances.js";
 import { nonBlankStringSchema } from "../lib/schemas.js";
 
@@ -103,7 +103,8 @@ export const groupsRouter = router({
 
     const members = group.memberIds
       .map((id) => db.users.get(id))
-      .filter((u): u is NonNullable<typeof u> => Boolean(u));
+      .filter((u): u is NonNullable<typeof u> => Boolean(u))
+      .map(toPublicUser);
 
     // Read from the per-group cache rather than scanning every expense.
     const expenses = (db.groupExpenseCache.get(group.id) ?? [])

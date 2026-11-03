@@ -16,14 +16,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { parseAmountToCents } from "@/lib/parse-amount";
 import { formatCents } from "@/lib/format";
-import type { User } from "server/src/lib/db.js";
+import type { PublicUser } from "server/src/lib/db.js";
 
 export function AddExpenseDialog({
   groupId,
   members,
 }: {
   groupId: string;
-  members: User[];
+  members: PublicUser[];
 }) {
   const trpc = useTRPC();
   const [open, setOpen] = useState(false);

@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../trpc.js";
-import { db, nextId, type User } from "../lib/db.js";
+import { db, nextId, toPublicUser, type User } from "../lib/db.js";
 
 export const usersRouter = router({
   list: publicProcedure.query(() => {
-    return Array.from(db.users.values());
+    return Array.from(db.users.values()).map(toPublicUser);
   }),
 
   create: publicProcedure
@@ -17,6 +17,10 @@ export const usersRouter = router({
       })
     )
     .mutation(({ input }) => {
+      if (Array.from(db.users.values()).some((u) => u.username === input.username)) {
+        throw new Error(`Username ${input.username} is already taken`);
+      }
+
       const user: User = {
         id: nextId("user"),
         name: input.name,
@@ -25,7 +29,7 @@ export const usersRouter = router({
         password: input.password,
       };
       db.users.set(user.id, user);
-      return user;
+      return toPublicUser(user);
     }),
 
   update: publicProcedure
@@ -46,7 +50,7 @@ export const usersRouter = router({
       for (const expense of db.expenses.values()) {
         if (expense.paidByUserId === user.id) expense.paidByUserName = user.name;
       }
-      return user;
+      return toPublicUser(user);
     }),
 
   updateAvatar: publicProcedure
@@ -55,6 +59,6 @@ export const usersRouter = router({
       const user = db.users.get(input.userId);
       if (!user) throw new Error(`User ${input.userId} not found`);
       user.avatarUrl = input.avatarUrl;
-      return user;
+      return toPublicUser(user);
     }),
 });
