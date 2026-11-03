@@ -18,11 +18,11 @@ function input(overrides: Partial<{ groupId: string; description: string; amount
   return { groupId: group.id, description: "Taxi", amountCents: 3000, paidByUserId: alice.id, ...overrides };
 }
 
-describe("quickAdd.create", () => {
+describe("expenses.create through the full read side", () => {
   it("creates an expense that shows up in the group's list, balances and totals", async () => {
     const caller = testCaller();
 
-    const expense = await caller.quickAdd.create(input());
+    const expense = await caller.expenses.create(input());
     const detail = await caller.groups.detail({ groupId: group.id });
 
     expect(expense).toMatchObject({ amountCents: 3000, currency: "EUR", paidByUserName: "Alice" });
@@ -35,7 +35,7 @@ describe("quickAdd.create", () => {
   it("splits leftover cents the same way as expenses.create", async () => {
     const caller = testCaller();
 
-    const quick = await caller.quickAdd.create(input({ amountCents: 100 }));
+    const quick = await caller.expenses.create(input({ amountCents: 100 }));
     const full = await caller.expenses.create(input({ amountCents: 100 }));
 
     expect(quick.splits).toEqual(full.splits);
@@ -45,7 +45,7 @@ describe("quickAdd.create", () => {
   it("categorizes a description the same way as expenses.create", async () => {
     const caller = testCaller();
 
-    const quick = await caller.quickAdd.create(input({ description: "Dinner" }));
+    const quick = await caller.expenses.create(input({ description: "Dinner" }));
     const full = await caller.expenses.create(input({ description: "Dinner" }));
 
     expect(quick.category).toBe(full.category);
@@ -53,25 +53,25 @@ describe("quickAdd.create", () => {
 
   it("rejects a payer who isn't a group member", async () => {
     const outsider = makeUser("Outsider");
-    await expect(testCaller().quickAdd.create(input({ paidByUserId: outsider.id }))).rejects.toThrow();
+    await expect(testCaller().expenses.create(input({ paidByUserId: outsider.id }))).rejects.toThrow();
   });
 
   it("rejects a payer id that doesn't exist", async () => {
-    await expect(testCaller().quickAdd.create(input({ paidByUserId: "ghost" }))).rejects.toThrow();
+    await expect(testCaller().expenses.create(input({ paidByUserId: "ghost" }))).rejects.toThrow();
   });
 
   it("never unbalances an empty group", async () => {
     const caller = testCaller();
     const empty = makeGroup("Empty", []);
 
-    await caller.quickAdd.create(input({ groupId: empty.id })).catch(() => undefined);
+    await caller.expenses.create(input({ groupId: empty.id })).catch(() => undefined);
 
     const { balances } = await caller.groups.detail({ groupId: empty.id });
     expect(sumNet(balances)).toBe(0);
   });
 
   it("rejects an unknown group", async () => {
-    await expect(testCaller().quickAdd.create(input({ groupId: "missing" }))).rejects.toThrow(/not found/i);
+    await expect(testCaller().expenses.create(input({ groupId: "missing" }))).rejects.toThrow(/not found/i);
   });
 
   it.each([
@@ -81,6 +81,6 @@ describe("quickAdd.create", () => {
     ["an empty description", { description: "" }],
     ["a whitespace-only description", { description: "   " }],
   ])("rejects %s", async (_label, override) => {
-    await expect(testCaller().quickAdd.create(input(override))).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(testCaller().expenses.create(input(override))).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 });

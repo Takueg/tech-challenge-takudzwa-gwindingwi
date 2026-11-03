@@ -1,24 +1,50 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
+import { notify } from "@/lib/notify";
 import { useTRPC } from "@/lib/trpc";
-import { UnarchiveGroupButton } from "@/components/app/unarchive-group-button";
+import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
 
 export function ArchivedGroups() {
   const trpc = useTRPC();
-  const { data: archivedGroups } = useQuery(trpc.groups.listArchived.queryOptions());
+  const invalidate = useInvalidateExpenseData();
+  const { data: archived } = useQuery(trpc.groups.listArchived.queryOptions());
+  const unarchive = useMutation(
+    trpc.groups.unarchive.mutationOptions({
+      meta: { errorTitle: "Couldn’t Unarchive Group" },
+      onSuccess: (group) => {
+        invalidate();
+        notify.success({ title: "Group Unarchived", body: `${group.name} is back on your dashboard.` });
+      },
+    })
+  );
 
-  if (!archivedGroups || archivedGroups.length === 0) return null;
+  if (!archived?.length) return null;
 
   return (
-    <div className="space-y-2">
-      <h2 className="text-sm font-medium text-muted-foreground">Archived groups</h2>
-      <ul className="divide-y rounded-md border">
-        {archivedGroups.map((group) => (
-          <li key={group.id} className="flex items-center justify-between gap-4 p-3 text-sm">
-            <span>{group.name}</span>
-            <UnarchiveGroupButton groupId={group.id} />
+    <details className="group flex flex-col gap-3">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 [font:600_15px/20px_var(--font-poppins)] text-strong">
+        <Icon name="expand_more" size={20} className="transition-transform group-open:rotate-180" />
+        Archived ({archived.length})
+      </summary>
+      <ul className="app-sunken m-0 mt-3 flex list-none flex-col gap-2 rounded-[22px] bg-sunken p-4">
+        {archived.map((group) => (
+          <li key={group.id} className="flex flex-wrap items-center gap-3.5 px-1">
+            <Icon name="archive" size={20} />
+            <Link to={`/groups/${group.id}`} className="min-w-0 flex-1 truncate [font:500_15px/20px_var(--font-poppins)] text-foreground">
+              {group.name}
+            </Link>
+            <Button
+              variant="secondary"
+              disabled={unarchive.isPending}
+              onClick={() => unarchive.mutate({ groupId: group.id })}
+            >
+              Unarchive
+            </Button>
           </li>
         ))}
       </ul>
-    </div>
+    </details>
   );
 }

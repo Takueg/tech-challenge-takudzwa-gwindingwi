@@ -35,7 +35,7 @@ describe("errors over HTTP", () => {
   });
 
   it("explains a blank description", async () => {
-    const result = await post("quickAdd.create", {
+    const result = await post("expenses.create", {
       groupId: "any",
       description: "   ",
       amountCents: 100,
@@ -46,7 +46,7 @@ describe("errors over HTTP", () => {
   });
 
   it("explains an amount that's too large", async () => {
-    const result = await post("quickAdd.create", {
+    const result = await post("expenses.create", {
       groupId: "any",
       description: "Dinner",
       amountCents: Number.MAX_SAFE_INTEGER + 1,
@@ -98,7 +98,7 @@ describe("errors over HTTP", () => {
     const group = makeGroup("Trip", [alice]);
     const outsider = makeUser("Outsider");
 
-    const result = await post("quickAdd.create", {
+    const result = await post("expenses.create", {
       groupId: group.id,
       description: "Dinner",
       amountCents: 100,

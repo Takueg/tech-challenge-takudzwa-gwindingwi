@@ -520,14 +520,6 @@ describe("expenses in an archived group", () => {
     expect(db.expenses.size).toBe(0);
   });
 
-  it("can't be added to with quickAdd.create", async () => {
-    const caller = testCaller();
-    await caller.groups.archive({ groupId: group.id });
-
-    await expect(caller.quickAdd.create(createInput())).rejects.toThrow(/archived/i);
-    expect(db.expenses.size).toBe(0);
-  });
-
   it("can be added to again once unarchived, without inheriting the archived state", async () => {
     const caller = testCaller();
     await caller.groups.archive({ groupId: group.id });

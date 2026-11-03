@@ -211,7 +211,7 @@ describe("groups.create", () => {
       .catch(() => undefined);
     if (!created) return;
 
-    const expense = await caller.quickAdd.create({
+    const expense = await caller.expenses.create({
       groupId: created.id,
       description: "Dinner",
       amountCents: 3000,
@@ -235,7 +235,7 @@ describe("groups.addMember", () => {
     expect(detail.members.map((m) => m.id)).toContain(dave.id);
     expect(netOf(detail.balances, dave)).toBe(0);
 
-    await caller.quickAdd.create({ groupId: group.id, description: "Taxi", amountCents: 4000, paidByUserId: alice.id });
+    await caller.expenses.create({ groupId: group.id, description: "Taxi", amountCents: 4000, paidByUserId: alice.id });
 
     detail = await caller.groups.detail({ groupId: group.id });
     expect(netOf(detail.balances, dave)).toBe(-1000);
@@ -261,7 +261,7 @@ describe("groups.removeMember", () => {
     const caller = testCaller();
 
     await caller.groups.removeMember({ groupId: group.id, userId: carol.id });
-    const expense = await caller.quickAdd.create({
+    const expense = await caller.expenses.create({
       groupId: group.id,
       description: "Taxi",
       amountCents: 1000,
