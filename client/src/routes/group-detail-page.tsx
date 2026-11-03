@@ -7,6 +7,7 @@ import { useTRPC } from "@/lib/trpc";
 import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
 import { useCurrentUser } from "@/context/current-user";
 import { formatCents } from "@/lib/format";
+import { shareOf } from "@/lib/share";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -141,43 +142,46 @@ export function GroupDetailPage() {
             {expenses.length === 0 && (
               <p className="p-4 text-sm text-muted-foreground">No expenses yet.</p>
             )}
-            {expenses.map((expense) => (
-              <div key={expense.id} className="flex items-center justify-between gap-4 p-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium">{expense.description}</p>
-                    <Badge variant="secondary">{expense.category}</Badge>
+            {expenses.map((expense) => {
+              const share = shareOf(expense, currentUserId);
+              return (
+                <div key={expense.id} className="flex items-center justify-between gap-4 p-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{expense.description}</p>
+                      <Badge variant="secondary">{expense.category}</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {nameOf(expense.paidByUserId)} paid ·{" "}
+                      {new Date(expense.createdAt).toLocaleDateString("de-DE", {
+                        day: "2-digit",
+                        month: "short",
+                      })}
+                    </p>
+                    {share !== undefined && (
+                      <p className="text-xs text-muted-foreground">Your share: {formatCents(share)}</p>
+                    )}
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {nameOf(expense.paidByUserId)} paid ·{" "}
-                    {new Date(expense.createdAt).toLocaleDateString("de-DE", {
-                      day: "2-digit",
-                      month: "short",
-                    })}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Your share: {formatCents(Math.round(expense.amountCents / members.length))}
-                  </p>
+                  <div className="flex items-center gap-3">
+                    <span className="font-medium">{formatCents(expense.amountCents)}</span>
+                    <EditExpenseDialog
+                      expenseId={expense.id}
+                      currentDescription={expense.description}
+                      currentAmountCents={expense.amountCents}
+                      currentReceiptUrl={expense.receiptUrl}
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label="Delete expense"
+                      onClick={() => handleDelete(expense.id, expense.paidByUserId)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-medium">{formatCents(expense.amountCents)}</span>
-                  <EditExpenseDialog
-                    expenseId={expense.id}
-                    currentDescription={expense.description}
-                    currentAmountCents={expense.amountCents}
-                    currentReceiptUrl={expense.receiptUrl}
-                  />
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    aria-label="Delete expense"
-                    onClick={() => handleDelete(expense.id, expense.paidByUserId)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </TabsContent>
 
