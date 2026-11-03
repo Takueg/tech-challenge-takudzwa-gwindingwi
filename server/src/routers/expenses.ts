@@ -1,9 +1,16 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../trpc.js";
-import { db } from "../lib/db.js";
+import { db, type Expense } from "../lib/db.js";
+import { detectExpenseCategory } from "../lib/category.js";
 import { computeEqualSplits, createExpense, createExpenseInput } from "../lib/expense-service.js";
-import { amountCentsSchema } from "../lib/schemas.js";
+import { amountCentsSchema, nonBlankStringSchema } from "../lib/schemas.js";
 import { computeNetBalances, simplifyDebts } from "../lib/balances.js";
+
+function requireExpense(expenseId: string): Expense {
+  const expense = db.expenses.get(expenseId);
+  if (!expense) throw new Error(`Expense ${expenseId} not found`);
+  return expense;
+}
 
 export const expensesRouter = router({
   search: publicProcedure.input(z.object({ query: z.string() })).query(({ input }) => {
@@ -49,8 +56,7 @@ export const expensesRouter = router({
   uploadReceipt: publicProcedure
     .input(z.object({ expenseId: z.string(), receiptUrl: z.string() }))
     .mutation(({ input }) => {
-      const expense = db.expenses.get(input.expenseId);
-      if (!expense) throw new Error(`Expense ${input.expenseId} not found`);
+      const expense = requireExpense(input.expenseId);
       expense.receiptUrl = input.receiptUrl;
       return expense;
     }),
@@ -59,22 +65,33 @@ export const expensesRouter = router({
     .input(
       z.object({
         expenseId: z.string(),
-        description: z.string().min(1),
-        amountCents: z.number().int().positive(),
+        description: nonBlankStringSchema,
+        amountCents: amountCentsSchema,
       })
     )
-    .mutation(({ input }) => {
-      const expense = db.expenses.get(input.expenseId);
-      if (!expense) throw new Error(`Expense ${input.expenseId} not found`);
+    .mutation(async ({ input }) => {
+      const before = requireExpense(input.expenseId);
+      const category =
+        input.description === before.description ? before.category : await detectExpenseCategory(input.description);
+
+      // Looked up again because the expense may have been deleted during detection.
+      const expense = requireExpense(input.expenseId);
+      if (input.amountCents !== expense.amountCents) {
+        // Re-split across the people on this expense, who may differ from today's members.
+        expense.splits = computeEqualSplits(
+          input.amountCents,
+          expense.splits.map((s) => s.userId)
+        );
+      }
       expense.description = input.description;
       expense.amountCents = input.amountCents;
+      expense.category = category;
       expense.updatedAt = new Date().toISOString();
       return expense;
     }),
 
   delete: publicProcedure.input(z.object({ expenseId: z.string() })).mutation(({ input }) => {
-    const expense = db.expenses.get(input.expenseId);
-    if (!expense) throw new Error(`Expense ${input.expenseId} not found`);
+    const expense = requireExpense(input.expenseId);
     db.expenses.delete(input.expenseId);
     const cached = db.groupExpenseCache.get(expense.groupId) ?? [];
     db.groupExpenseCache.set(

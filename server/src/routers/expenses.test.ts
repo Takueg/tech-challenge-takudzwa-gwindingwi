@@ -199,6 +199,53 @@ describe("expenses.update", () => {
     expect(updated.updatedAt).not.toBe("2026-01-01T00:00:00.000Z");
   });
 
+  it("recomputes splits so they add up to the new amount", async () => {
+    const expense = addExpense(group, alice, 3000);
+
+    const updated = await testCaller().expenses.update({ expenseId: expense.id, description: "Edit", amountCents: 6000 });
+
+    expect(updated.splits.map((s) => s.amountCents)).toEqual([2000, 2000, 2000]);
+  });
+
+  it("moves balances to match the new amount when raised", async () => {
+    const caller = testCaller();
+    const expense = addExpense(group, alice, 3000);
+
+    await caller.expenses.update({ expenseId: expense.id, description: "Edit", amountCents: 6000 });
+
+    const { balances } = await caller.groups.detail({ groupId: group.id });
+    expect(netOf(balances, alice)).toBe(4000);
+    expect(netOf(balances, bob)).toBe(-2000);
+    expect(netOf(balances, carol)).toBe(-2000);
+  });
+
+  it("moves balances to match the new amount when lowered", async () => {
+    const caller = testCaller();
+    const expense = addExpense(group, alice, 3000);
+
+    await caller.expenses.update({ expenseId: expense.id, description: "Edit", amountCents: 300 });
+
+    const { balances } = await caller.groups.detail({ groupId: group.id });
+    expect(sumNet(balances)).toBe(0);
+    expect(netOf(balances, alice)).toBe(200);
+    expect(netOf(balances, bob)).toBe(-100);
+  });
+
+  it("splits an edited amount across the people on the original expense, not current members", async () => {
+    const caller = testCaller();
+    const expense = addExpense(group, alice, 3000);
+    addSettlement(group, carol, alice, 1000);
+    await caller.groups.removeMember({ groupId: group.id, userId: carol.id });
+
+    const updated = await caller.expenses.update({ expenseId: expense.id, description: "Edit", amountCents: 6000 });
+
+    expect(updated.splits).toEqual([
+      { userId: alice.id, amountCents: 2000 },
+      { userId: bob.id, amountCents: 2000 },
+      { userId: carol.id, amountCents: 2000 },
+    ]);
+  });
+
   it("leaves balances alone when only the description changes", async () => {
     const caller = testCaller();
     const expense = addExpense(group, alice, 3000);
@@ -207,6 +254,18 @@ describe("expenses.update", () => {
     await caller.expenses.update({ expenseId: expense.id, description: "Renamed", amountCents: 3000 });
 
     expect((await caller.groups.detail({ groupId: group.id })).balances).toEqual(before);
+  });
+
+  it("re-detects the category when the description changes", async () => {
+    const expense = await testCaller().expenses.create(createInput({ description: "Dinner" }));
+
+    const updated = await testCaller().expenses.update({
+      expenseId: expense.id,
+      description: "Flight to Rome",
+      amountCents: 3000,
+    });
+
+    expect(updated.category).toBe("Travel");
   });
 
   it("carries the new amount into every total", async () => {
