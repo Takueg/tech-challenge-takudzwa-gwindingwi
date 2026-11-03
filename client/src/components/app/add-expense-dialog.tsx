@@ -42,8 +42,8 @@ export function AddExpenseDialog({
   const invalidate = useInvalidateExpenseData();
   const undo = useUndo();
   const { currentUserId } = useCurrentUser();
-  const { data: groups } = useQuery(trpc.groups.list.queryOptions());
-  const myGroups = (groups ?? []).filter((group) => currentUserId && group.memberIds.includes(currentUserId));
+  const { data } = useQuery(trpc.groups.list.queryOptions({ userId: currentUserId ?? "" }));
+  const myGroups = data ?? [];
 
   const [values, setValues] = useState<Values>({
     groupId: myGroups.some((group) => group.id === initialGroupId) ? (initialGroupId as string) : "",

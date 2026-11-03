@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { useCurrentUser } from "@/context/current-user";
 import { notify } from "@/lib/notify";
 import { useTRPC } from "@/lib/trpc";
 import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
@@ -9,7 +10,8 @@ import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
 export function ArchivedGroups() {
   const trpc = useTRPC();
   const invalidate = useInvalidateExpenseData();
-  const { data: archived } = useQuery(trpc.groups.listArchived.queryOptions());
+  const { currentUserId } = useCurrentUser();
+  const { data: archived } = useQuery(trpc.groups.listArchived.queryOptions({ userId: currentUserId ?? "" }));
   const unarchive = useMutation(
     trpc.groups.unarchive.mutationOptions({
       meta: { errorTitle: "Couldn’t Unarchive Group" },

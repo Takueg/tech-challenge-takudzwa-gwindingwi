@@ -17,8 +17,9 @@ export function NewGroupDialog({ onClose }: { onClose: () => void }) {
   const invalidate = useInvalidateExpenseData();
   const { currentUserId } = useCurrentUser();
   const { data: users } = useQuery(trpc.users.list.queryOptions());
-  const { data: groups } = useQuery(trpc.groups.list.queryOptions());
-  const { data: archived } = useQuery(trpc.groups.listArchived.queryOptions());
+  const userInput = { userId: currentUserId ?? "" };
+  const { data: groups } = useQuery(trpc.groups.list.queryOptions(userInput));
+  const { data: archived } = useQuery(trpc.groups.listArchived.queryOptions(userInput));
 
   const [name, setName] = useState("");
   const [members, setMembers] = useState<string[]>([]);
@@ -27,9 +28,7 @@ export function NewGroupDialog({ onClose }: { onClose: () => void }) {
   const [membersError, setMembersError] = useState<string>();
 
   const people = (users ?? []).filter((user) => user.id !== currentUserId);
-  const myGroupNames = [...(groups ?? []), ...(archived ?? [])]
-    .filter((group) => currentUserId && group.memberIds.includes(currentUserId))
-    .map((group) => group.name);
+  const myGroupNames = [...(groups ?? []), ...(archived ?? [])].map((group) => group.name);
 
   const create = useMutation(
     trpc.groups.create.mutationOptions({

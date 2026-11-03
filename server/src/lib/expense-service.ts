@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { db, nextId, type Expense, type ExpenseSplit } from "./db.js";
+import { db, nextId, type Expense, type ExpenseSplit, type Group } from "./db.js";
 import { detectExpenseCategory } from "./category.js";
 import { amountCentsSchema, nonBlankStringSchema } from "./schemas.js";
 import { splitStrategyRegistry } from "./split-strategies/index.js";
@@ -12,9 +12,15 @@ export const createExpenseInput = z.object({
   paidByUserId: z.string(),
 });
 
-/** Expenses for app-wide views. Balances and group detail read every expense, archived or not. */
-export function listActiveExpenses(): Expense[] {
-  return Array.from(db.expenses.values()).filter((expense) => !db.groups.get(expense.groupId)?.archivedAt);
+/** A user's active groups: what they can see across the app. */
+export function listGroupsForUser(userId: string): Group[] {
+  return Array.from(db.groups.values()).filter((group) => !group.archivedAt && group.memberIds.includes(userId));
+}
+
+/** Expenses for a user's app-wide views. Balances and group detail read every expense, archived or not. */
+export function listExpensesForUser(userId: string): Expense[] {
+  const groupIds = new Set(listGroupsForUser(userId).map((group) => group.id));
+  return Array.from(db.expenses.values()).filter((expense) => groupIds.has(expense.groupId));
 }
 
 export function computeEqualSplits(amountCents: number, memberIds: string[]): ExpenseSplit[] {

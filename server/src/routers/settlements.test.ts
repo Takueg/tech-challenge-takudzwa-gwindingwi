@@ -35,7 +35,7 @@ describe("settlements.create", () => {
 
     await caller.settlements.create({ groupId: group.id, fromUserId: bob.id, toUserId: alice.id, amountCents: 400 });
 
-    const { balances } = await caller.groups.detail({ groupId: group.id });
+    const { balances } = await caller.groups.detail({ groupId: group.id, userId: alice.id });
     expect(netOf(balances, alice)).toBe(1600);
     expect(netOf(balances, bob)).toBe(-600);
     expect(netOf(balances, carol)).toBe(-1000);
@@ -48,13 +48,13 @@ describe("settlements.create", () => {
     addExpense(group, bob, 3333);
     addExpense(group, carol, 1);
 
-    const { suggestedTransfers } = await caller.groups.detail({ groupId: group.id });
+    const { suggestedTransfers } = await caller.groups.detail({ groupId: group.id, userId: alice.id });
     expect(suggestedTransfers.length).toBeGreaterThan(0);
     for (const transfer of suggestedTransfers) {
       await caller.settlements.create({ groupId: group.id, ...transfer });
     }
 
-    const after = await caller.groups.detail({ groupId: group.id });
+    const after = await caller.groups.detail({ groupId: group.id, userId: alice.id });
     expect(after.balances.every((b) => b.netCents === 0)).toBe(true);
     expect(after.suggestedTransfers).toEqual([]);
   });
@@ -65,8 +65,8 @@ describe("settlements.create", () => {
 
     await caller.settlements.create({ groupId: group.id, fromUserId: bob.id, toUserId: alice.id, amountCents: 1000 });
 
-    expect((await caller.groups.detail({ groupId: group.id })).categoryTotals).toEqual({ Food: 3000 });
-    expect((await caller.stats.overview()).totalCents).toBe(3000);
+    expect((await caller.groups.detail({ groupId: group.id, userId: alice.id })).categoryTotals).toEqual({ Food: 3000 });
+    expect((await caller.stats.overview({ userId: alice.id })).totalCents).toBe(3000);
   });
 
   it("rejects an unknown group", async () => {
@@ -84,7 +84,7 @@ describe("settlements.create", () => {
 
     await caller.settlements.create({ groupId: group.id, fromUserId: carol.id, toUserId: alice.id, amountCents: 1000 });
 
-    const { balances } = await caller.groups.detail({ groupId: group.id });
+    const { balances } = await caller.groups.detail({ groupId: group.id, userId: alice.id });
     expect(netOf(balances, carol)).toBeUndefined();
     expect(sumNet(balances)).toBe(0);
   });
@@ -105,7 +105,7 @@ describe("settlements.create", () => {
 
     await caller.settlements.create({ groupId: group.id, fromUserId: bob.id, toUserId: alice.id, amountCents: 1000 });
 
-    expect(netOf((await caller.groups.detail({ groupId: group.id })).balances, bob)).toBe(0);
+    expect(netOf((await caller.groups.detail({ groupId: group.id, userId: alice.id })).balances, bob)).toBe(0);
   });
 
   it("rejects paying more than the payer owes", async () => {
@@ -137,7 +137,7 @@ describe("settlements.create", () => {
     await caller.settlements.create(payment);
 
     await expect(caller.settlements.create(payment)).rejects.toThrow();
-    expect(netOf((await caller.groups.detail({ groupId: group.id })).balances, bob)).toBe(0);
+    expect(netOf((await caller.groups.detail({ groupId: group.id, userId: alice.id })).balances, bob)).toBe(0);
   });
 
   it("rejects a payer who doesn't owe anything", async () => {
@@ -210,7 +210,7 @@ describe("settlements.delete", () => {
 
     await expect(caller.settlements.delete({ settlementId: settlement.id })).resolves.toEqual({ ok: true });
 
-    const detail = await caller.groups.detail({ groupId: group.id });
+    const detail = await caller.groups.detail({ groupId: group.id, userId: alice.id });
     expect(detail.settlements).toEqual([]);
     expect(netOf(detail.balances, bob)).toBe(-1000);
     expect(netOf(detail.balances, alice)).toBe(2000);
@@ -284,7 +284,7 @@ describe("settlements.restore", () => {
 
     await caller.settlements.restore({ settlementId: settlement.id });
 
-    const detail = await caller.groups.detail({ groupId: restoring.id });
+    const detail = await caller.groups.detail({ groupId: restoring.id, userId: alice.id });
     expect(detail.settlements.map((s) => s.id)).toEqual([settlement.id]);
     expect(netOf(detail.balances, alice)).toBe(0);
   });

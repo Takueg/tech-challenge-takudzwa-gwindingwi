@@ -151,12 +151,12 @@ export function DashboardPage() {
   const { openAddExpense, openSettleUp, openNewGroup, newExpenseId } = useAppDialogs();
   const userInput = { userId: currentUserId ?? "" };
 
-  const overview = useQuery(trpc.stats.overview.queryOptions());
+  const overview = useQuery(trpc.stats.overview.queryOptions(userInput));
   const balances = useQuery(trpc.stats.myBalances.queryOptions(userInput));
   const debts = useQuery(trpc.settlements.suggestedForUser.queryOptions(userInput));
-  const expenses = useQuery(trpc.expenses.list.queryOptions({}));
-  const leaderboard = useQuery(trpc.stats.leaderboard.queryOptions());
-  const groups = useQuery(trpc.groups.list.queryOptions());
+  const expenses = useQuery(trpc.expenses.list.queryOptions(userInput));
+  const leaderboard = useQuery(trpc.stats.leaderboard.queryOptions(userInput));
+  const groups = useQuery(trpc.groups.list.queryOptions(userInput));
   const users = useQuery(trpc.users.list.queryOptions());
 
   const headerLoading = overview.isLoading || balances.isLoading;

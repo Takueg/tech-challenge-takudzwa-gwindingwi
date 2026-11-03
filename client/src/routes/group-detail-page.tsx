@@ -382,7 +382,7 @@ function GroupDetail({ groupId }: { groupId: string }) {
   const undo = useUndo();
   const { currentUserId } = useCurrentUser();
   const { newExpenseId, markNewExpense } = useAppDialogs();
-  const detail = useQuery(trpc.groups.detail.queryOptions({ groupId }));
+  const detail = useQuery(trpc.groups.detail.queryOptions({ groupId, userId: currentUserId ?? "" }));
   const [tab, setTab] = useState(TABS[0]);
   const [formOpen, setFormOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);

@@ -373,9 +373,9 @@ export function SettingsPage() {
   const trpc = useTRPC();
   const { currentUserId } = useCurrentUser();
   const { user, users, isLoading, isError, refetch } = useCurrentUserRecord();
-  const groups = useQuery(trpc.groups.list.queryOptions());
+  const groups = useQuery(trpc.groups.list.queryOptions({ userId: currentUserId ?? "" }));
   const [editing, setEditing] = useState(false);
-  const groupCount = (groups.data ?? []).filter((group) => currentUserId && group.memberIds.includes(currentUserId)).length;
+  const groupCount = groups.data?.length ?? 0;
 
   return (
     <PageLayout

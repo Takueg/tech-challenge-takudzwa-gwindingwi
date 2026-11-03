@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { computeNetBalances } from "../lib/balances.js";
 import type { Group, User } from "../lib/db.js";
 import { testCaller } from "../test-utils/caller.js";
 import { makeGroup, makeUser, netOf, resetDb, sumNet } from "../test-utils/fixtures.js";
@@ -23,7 +24,7 @@ describe("expenses.create through the full read side", () => {
     const caller = testCaller();
 
     const expense = await caller.expenses.create(input());
-    const detail = await caller.groups.detail({ groupId: group.id });
+    const detail = await caller.groups.detail({ groupId: group.id, userId: alice.id });
 
     expect(expense).toMatchObject({ amountCents: 3000, currency: "EUR", paidByUserName: "Alice" });
     expect(detail.expenses.map((e) => e.id)).toEqual([expense.id]);
@@ -66,8 +67,7 @@ describe("expenses.create through the full read side", () => {
 
     await caller.expenses.create(input({ groupId: empty.id })).catch(() => undefined);
 
-    const { balances } = await caller.groups.detail({ groupId: empty.id });
-    expect(sumNet(balances)).toBe(0);
+    expect(sumNet(computeNetBalances(empty.id))).toBe(0);
   });
 
   it("rejects an unknown group", async () => {

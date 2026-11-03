@@ -2,7 +2,7 @@ import { z } from "zod";
 import { router, publicProcedure } from "../trpc.js";
 import { db, type Expense } from "../lib/db.js";
 import { detectExpenseCategory } from "../lib/category.js";
-import { computeEqualSplits, createExpense, createExpenseInput, listActiveExpenses } from "../lib/expense-service.js";
+import { computeEqualSplits, createExpense, createExpenseInput, listExpensesForUser } from "../lib/expense-service.js";
 import { amountCentsSchema, nonBlankStringSchema } from "../lib/schemas.js";
 import { badRequest, conflict, forbidden, notFound } from "../lib/errors.js";
 
@@ -19,12 +19,12 @@ const EXPENSE_LIST_LIMIT = 1000;
 
 export const expensesRouter = router({
   /** Newest first, with the group name for the shared table. Without a group, leaves out archived groups. */
-  list: publicProcedure.input(z.object({ groupId: z.string().optional() })).query(({ input }) => {
-    const { groupId } = input;
-    if (groupId && !db.groups.has(groupId)) throw notFound(`Group ${groupId} not found`);
+  list: publicProcedure.input(z.object({ userId: z.string(), groupId: z.string().optional() })).query(({ input }) => {
+    const { groupId, userId } = input;
+    if (groupId && !db.groups.get(groupId)?.memberIds.includes(userId)) throw notFound(`Group ${groupId} not found`);
     const expenses = groupId
       ? Array.from(db.expenses.values()).filter((e) => e.groupId === groupId)
-      : listActiveExpenses();
+      : listExpensesForUser(userId);
     return expenses
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .slice(0, EXPENSE_LIST_LIMIT)
@@ -35,6 +35,7 @@ export const expensesRouter = router({
     .input(z.object({ description: nonBlankStringSchema }))
     .query(({ input }) => detectExpenseCategory(input.description)),
 
+  /** With an expense, previews an edit: that re-splits across the people on it, who may differ from today's members. */
   previewSplit: publicProcedure
     .input(z.object({ groupId: z.string(), amountCents: amountCentsSchema, expenseId: z.string().optional() }))
     .query(({ input }) => {

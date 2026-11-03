@@ -7,6 +7,7 @@ import { nonBlankStringSchema } from "../lib/schemas.js";
 import { badRequest, conflict, notFound } from "../lib/errors.js";
 
 const MAX_MEMBERS_PER_REQUEST = 200;
+const userInput = z.object({ userId: z.string() });
 
 function listGroupsWithTotals(includeGroup: (group: Group) => boolean) {
   return Array.from(db.groups.values())
@@ -44,9 +45,17 @@ function listFormerMembers(group: Group, expenses: Expense[], settlements: Settl
 }
 
 export const groupsRouter = router({
-  list: publicProcedure.query(() => listGroupsWithTotals((group) => !group.archivedAt)),
+  list: publicProcedure
+    .input(userInput)
+    .query(({ input }) =>
+      listGroupsWithTotals((group) => !group.archivedAt && group.memberIds.includes(input.userId))
+    ),
 
-  listArchived: publicProcedure.query(() => listGroupsWithTotals((group) => Boolean(group.archivedAt))),
+  listArchived: publicProcedure
+    .input(userInput)
+    .query(({ input }) =>
+      listGroupsWithTotals((group) => Boolean(group.archivedAt) && group.memberIds.includes(input.userId))
+    ),
 
   archive: publicProcedure.input(z.object({ groupId: z.string() })).mutation(({ input }) => archiveGroup(input.groupId)),
 
@@ -116,9 +125,10 @@ export const groupsRouter = router({
     return { ok: true };
   }),
 
-  detail: publicProcedure.input(z.object({ groupId: z.string() })).query(({ input }) => {
+  detail: publicProcedure.input(z.object({ groupId: z.string(), userId: z.string() })).query(({ input }) => {
     const group = db.groups.get(input.groupId);
-    if (!group) throw notFound(`Group ${input.groupId} not found`);
+    // Same error for a stranger as for a missing group, so ids can't be probed.
+    if (!group || !group.memberIds.includes(input.userId)) throw notFound(`Group ${input.groupId} not found`);
 
     const members = group.memberIds
       .map((id) => db.users.get(id))

@@ -16,7 +16,7 @@ beforeEach(() => {
 
 describe("stats.overview", () => {
   it("reports zero spending with no expenses", async () => {
-    expect(await testCaller().stats.overview()).toEqual({
+    expect(await testCaller().stats.overview({ userId: alice.id })).toEqual({
       groupCount: 2,
       expenseCount: 0,
       totalCents: 0,
@@ -29,7 +29,7 @@ describe("stats.overview", () => {
     addExpense(other, bob, 2500);
     addSettlement(group, bob, alice, 500);
 
-    expect(await testCaller().stats.overview()).toEqual({
+    expect(await testCaller().stats.overview({ userId: alice.id })).toEqual({
       groupCount: 2,
       expenseCount: 2,
       totalCents: 3500,
@@ -45,7 +45,7 @@ describe("stats.overview", () => {
     await caller.expenses.update({ expenseId: edited.id, description: "Edited", amountCents: 1500, userId: alice.id });
     await caller.expenses.delete({ expenseId: deleted.id, userId: alice.id });
 
-    expect(await caller.stats.overview()).toMatchObject({ expenseCount: 1, totalCents: 1500 });
+    expect(await caller.stats.overview({ userId: alice.id })).toMatchObject({ expenseCount: 1, totalCents: 1500 });
   });
 
   it("excludes the expenses of a deleted group", async () => {
@@ -56,7 +56,7 @@ describe("stats.overview", () => {
     settleUp(group);
     await caller.groups.delete({ groupId: group.id });
 
-    expect(await caller.stats.overview()).toEqual({
+    expect(await caller.stats.overview({ userId: alice.id })).toEqual({
       groupCount: 1,
       expenseCount: 1,
       totalCents: 2500,
@@ -72,8 +72,8 @@ describe("stats.overview", () => {
 
     await caller.groups.archive({ groupId: group.id });
 
-    const visible = await caller.groups.list();
-    const overview = await caller.stats.overview();
+    const visible = await caller.groups.list({ userId: alice.id });
+    const overview = await caller.stats.overview({ userId: alice.id });
     expect(overview.groupCount).toBe(visible.length);
     expect(overview.totalCents).toBe(visible.reduce((sum, g) => sum + g.totalCents, 0));
   });
@@ -88,23 +88,23 @@ describe("stats after archiving", () => {
 
     await caller.groups.archive({ groupId: group.id });
 
-    expect(await caller.stats.overview()).toEqual({
+    expect(await caller.stats.overview({ userId: alice.id })).toEqual({
       groupCount: 1,
       expenseCount: 1,
       totalCents: 2500,
       categoryTotals: { Other: 2500 },
     });
-    expect((await caller.stats.leaderboard()).map((entry) => entry.userId)).toEqual([bob.id]);
+    expect((await caller.stats.leaderboard({ userId: alice.id })).map((entry) => entry.userId)).toEqual([bob.id]);
 
     await caller.groups.unarchive({ groupId: group.id });
 
-    expect(await caller.stats.overview()).toEqual({
+    expect(await caller.stats.overview({ userId: alice.id })).toEqual({
       groupCount: 2,
       expenseCount: 2,
       totalCents: 3500,
       categoryTotals: { Other: 3500 },
     });
-    expect((await caller.stats.leaderboard()).map((entry) => entry.userId)).toEqual([bob.id, alice.id]);
+    expect((await caller.stats.leaderboard({ userId: alice.id })).map((entry) => entry.userId)).toEqual([bob.id, alice.id]);
   });
 });
 
@@ -114,7 +114,7 @@ describe("stats.leaderboard", () => {
     addExpense(other, alice, 500);
     addExpense(group, bob, 2000);
 
-    expect(await testCaller().stats.leaderboard()).toEqual([
+    expect(await testCaller().stats.leaderboard({ userId: alice.id })).toEqual([
       { userId: bob.id, userName: "Bob", totalCents: 2000 },
       { userId: alice.id, userName: "Alice", totalCents: 1500 },
     ]);
@@ -123,7 +123,7 @@ describe("stats.leaderboard", () => {
   it("leaves out users who haven't paid for anything", async () => {
     addExpense(group, alice, 1000);
 
-    const leaderboard = await testCaller().stats.leaderboard();
+    const leaderboard = await testCaller().stats.leaderboard({ userId: alice.id });
 
     expect(leaderboard.map((entry) => entry.userId)).toEqual([alice.id]);
   });
@@ -132,7 +132,7 @@ describe("stats.leaderboard", () => {
     addExpense(group, alice, 1000);
     addSettlement(group, bob, alice, 500);
 
-    const leaderboard = await testCaller().stats.leaderboard();
+    const leaderboard = await testCaller().stats.leaderboard({ userId: alice.id });
 
     expect(leaderboard).toEqual([{ userId: alice.id, userName: "Alice", totalCents: 1000 }]);
   });
@@ -143,7 +143,7 @@ describe("stats.leaderboard", () => {
 
     await caller.users.update({ userId: alice.id, name: "Alicia", email: "alicia@test.com" });
 
-    expect((await caller.stats.leaderboard())[0].userName).toBe("Alicia");
+    expect((await caller.stats.leaderboard({ userId: alice.id }))[0].userName).toBe("Alicia");
   });
 
   it("excludes the expenses of a deleted group", async () => {
@@ -153,7 +153,7 @@ describe("stats.leaderboard", () => {
     settleUp(group);
     await caller.groups.delete({ groupId: group.id });
 
-    expect(await caller.stats.leaderboard()).toEqual([]);
+    expect(await caller.stats.leaderboard({ userId: alice.id })).toEqual([]);
   });
 });
 
@@ -166,7 +166,7 @@ describe("stats.overview categoryTotals", () => {
     settleUp(other);
     await caller.groups.archive({ groupId: other.id });
 
-    expect((await caller.stats.overview()).categoryTotals).toEqual({ Food: 1500 });
+    expect((await caller.stats.overview({ userId: alice.id })).categoryTotals).toEqual({ Food: 1500 });
   });
 });
 
@@ -204,5 +204,31 @@ describe("stats.myBalances", () => {
       oweCents: 0,
       perGroup: [],
     });
+  });
+});
+
+describe("stats are scoped to the user's groups", () => {
+  it("totals only their groups, including categories", async () => {
+    const carol = makeUser("Carol");
+    const theirs = makeGroup("Theirs", [bob, carol]);
+    addExpense(group, alice, 1000, { category: "Food" });
+    addExpense(theirs, bob, 9000, { category: "Rent" });
+
+    expect(await testCaller().stats.overview({ userId: alice.id })).toEqual({
+      groupCount: 2,
+      expenseCount: 1,
+      totalCents: 1000,
+      categoryTotals: { Food: 1000 },
+    });
+  });
+
+  it("ranks spenders from their groups only", async () => {
+    const carol = makeUser("Carol");
+    const theirs = makeGroup("Theirs", [bob, carol]);
+    addExpense(group, alice, 1000);
+    addExpense(theirs, carol, 9000);
+
+    const board = await testCaller().stats.leaderboard({ userId: alice.id });
+    expect(board.map((row) => row.userName)).toEqual(["Alice"]);
   });
 });

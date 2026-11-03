@@ -23,8 +23,9 @@ export function CommandPalette({
 }) {
   const trpc = useTRPC();
   const navigate = useNavigate();
-  const { logout } = useCurrentUser();
-  const { data: groups } = useQuery(trpc.groups.list.queryOptions());
+  const { currentUserId, logout } = useCurrentUser();
+  const userInput = { userId: currentUserId ?? "" };
+  const { data: groups } = useQuery(trpc.groups.list.queryOptions(userInput));
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
 

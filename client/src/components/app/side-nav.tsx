@@ -36,7 +36,7 @@ export function SideNav({ onNavigate, className }: { onNavigate?: () => void; cl
   const { currentUserId } = useCurrentUser();
   const { openNewGroup } = useAppDialogs();
   const [sort, setSort] = useState<SortMode>("recent");
-  const groups = useQuery(trpc.groups.list.queryOptions());
+  const groups = useQuery(trpc.groups.list.queryOptions({ userId: currentUserId ?? "" }));
   const balances = useQuery({
     ...trpc.stats.myBalances.queryOptions({ userId: currentUserId ?? "" }),
     enabled: Boolean(currentUserId),

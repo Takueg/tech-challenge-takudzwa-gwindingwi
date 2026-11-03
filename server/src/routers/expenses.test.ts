@@ -66,7 +66,7 @@ describe("expenses.create", () => {
       });
     }
 
-    const detail = await caller.groups.detail({ groupId: group.id });
+    const detail = await caller.groups.detail({ groupId: group.id, userId: alice.id });
     expect(detail.expenses).toHaveLength(descriptions.length);
   });
 });
@@ -83,7 +83,7 @@ describe("expenses.delete", () => {
 
     await caller.expenses.delete({ expenseId: expense.id, userId: alice.id });
 
-    const detail = await caller.groups.detail({ groupId: group.id });
+    const detail = await caller.groups.detail({ groupId: group.id, userId: alice.id });
     expect(detail.expenses.find((e) => e.id === expense.id)).toBeUndefined();
   });
 
@@ -125,7 +125,7 @@ describe("expenses.create, details", () => {
     const caller = testCaller();
     await caller.expenses.create(createInput({ amountCents: 100, paidByUserId: carol.id }));
 
-    const { balances } = await caller.groups.detail({ groupId: group.id });
+    const { balances } = await caller.groups.detail({ groupId: group.id, userId: alice.id });
 
     expect(netOf(balances, alice)).toBe(-34);
     expect(netOf(balances, bob)).toBe(-33);
@@ -141,7 +141,7 @@ describe("expenses.create, details", () => {
     addSettlement(group, carol, alice, 1000);
     await caller.groups.removeMembers({ groupId: group.id, userIds: [carol.id] });
 
-    const detail = await caller.groups.detail({ groupId: group.id });
+    const detail = await caller.groups.detail({ groupId: group.id, userId: alice.id });
     expect(detail.expenses.find((e) => e.id === expense.id)?.splits.map((s) => s.userId)).toEqual([
       alice.id,
       bob.id,
@@ -157,7 +157,7 @@ describe("expenses.create, details", () => {
       [1000, 2000, 3000, 4000, 5000].map((amountCents) => caller.expenses.create(createInput({ amountCents })))
     );
 
-    const detail = await caller.groups.detail({ groupId: group.id });
+    const detail = await caller.groups.detail({ groupId: group.id, userId: alice.id });
     expect(detail.expenses).toHaveLength(5);
     expect(detail.expenses.reduce((sum, e) => sum + e.amountCents, 0)).toBe(15000);
     expect(Object.values(detail.categoryTotals).reduce((sum, c) => sum + c, 0)).toBe(15000);
@@ -211,7 +211,7 @@ describe("expenses.update", () => {
 
     await caller.expenses.update({ expenseId: expense.id, description: "Edit", amountCents: 6000, userId: alice.id });
 
-    const { balances } = await caller.groups.detail({ groupId: group.id });
+    const { balances } = await caller.groups.detail({ groupId: group.id, userId: alice.id });
     expect(netOf(balances, alice)).toBe(4000);
     expect(netOf(balances, bob)).toBe(-2000);
     expect(netOf(balances, carol)).toBe(-2000);
@@ -223,7 +223,7 @@ describe("expenses.update", () => {
 
     await caller.expenses.update({ expenseId: expense.id, description: "Edit", amountCents: 300, userId: alice.id });
 
-    const { balances } = await caller.groups.detail({ groupId: group.id });
+    const { balances } = await caller.groups.detail({ groupId: group.id, userId: alice.id });
     expect(sumNet(balances)).toBe(0);
     expect(netOf(balances, alice)).toBe(200);
     expect(netOf(balances, bob)).toBe(-100);
@@ -247,11 +247,11 @@ describe("expenses.update", () => {
   it("leaves balances alone when only the description changes", async () => {
     const caller = testCaller();
     const expense = addExpense(group, alice, 3000);
-    const before = (await caller.groups.detail({ groupId: group.id })).balances;
+    const before = (await caller.groups.detail({ groupId: group.id, userId: alice.id })).balances;
 
     await caller.expenses.update({ expenseId: expense.id, description: "Renamed", amountCents: 3000, userId: alice.id });
 
-    expect((await caller.groups.detail({ groupId: group.id })).balances).toEqual(before);
+    expect((await caller.groups.detail({ groupId: group.id, userId: alice.id })).balances).toEqual(before);
   });
 
   it("re-detects the category when the description changes", async () => {
@@ -273,12 +273,12 @@ describe("expenses.update", () => {
 
     await caller.expenses.update({ expenseId: expense.id, description: expense.description, amountCents: 4500, userId: alice.id });
 
-    const detail = await caller.groups.detail({ groupId: group.id });
+    const detail = await caller.groups.detail({ groupId: group.id, userId: alice.id });
     expect(detail.expenses[0].amountCents).toBe(4500);
     expect(detail.categoryTotals).toEqual({ Food: 4500 });
-    expect((await caller.groups.list())[0].totalCents).toBe(4500);
-    expect((await caller.stats.overview()).totalCents).toBe(4500);
-    expect((await caller.stats.leaderboard())[0].totalCents).toBe(4500);
+    expect((await caller.groups.list({ userId: alice.id }))[0].totalCents).toBe(4500);
+    expect((await caller.stats.overview({ userId: alice.id })).totalCents).toBe(4500);
+    expect((await caller.stats.leaderboard({ userId: alice.id }))[0].totalCents).toBe(4500);
   });
 
   it("rejects an unknown expense", async () => {
@@ -311,14 +311,14 @@ describe("expenses.delete, effect on money", () => {
 
     await caller.expenses.delete({ expenseId: deleted.id, userId: alice.id });
 
-    const detail = await caller.groups.detail({ groupId: group.id });
+    const detail = await caller.groups.detail({ groupId: group.id, userId: alice.id });
     expect(netOf(detail.balances, alice)).toBe(-500);
     expect(netOf(detail.balances, bob)).toBe(1000);
     expect(netOf(detail.balances, carol)).toBe(-500);
     expect(detail.categoryTotals).toEqual({ Food: 1500 });
     expect(detail.expenses.map((e) => e.id)).toEqual([kept.id]);
-    expect((await caller.groups.list())[0]).toMatchObject({ expenseCount: 1, totalCents: 1500 });
-    expect((await caller.stats.overview()).totalCents).toBe(1500);
+    expect((await caller.groups.list({ userId: alice.id }))[0]).toMatchObject({ expenseCount: 1, totalCents: 1500 });
+    expect((await caller.stats.overview({ userId: alice.id })).totalCents).toBe(1500);
   });
 });
 
@@ -351,19 +351,19 @@ describe("expenses.previewSplit", () => {
 });
 
 describe("expenses in an archived group", () => {
-  it("are left out of search until the group is unarchived", async () => {
+  it("are left out of the list until the group is unarchived", async () => {
     const caller = testCaller();
     const expense = addExpense(group, alice, 100, { description: "Dinner" });
     settleUp(group);
 
     await caller.groups.archive({ groupId: group.id });
-    expect(await caller.expenses.list({})).toEqual([]);
+    expect(await caller.expenses.list({ userId: alice.id })).toEqual([]);
 
     await caller.groups.unarchive({ groupId: group.id });
-    expect((await caller.expenses.list({})).map((e) => e.id)).toEqual([expense.id]);
+    expect((await caller.expenses.list({ userId: alice.id })).map((e) => e.id)).toEqual([expense.id]);
   });
 
-  it("can't be edited, deleted or given a receipt", async () => {
+  it("can't be edited or deleted", async () => {
     const caller = testCaller();
     const expense = addExpense(group, alice, 3000, { description: "Dinner" });
     settleUp(group);
@@ -409,7 +409,7 @@ describe("expenses in an archived group", () => {
 
     await caller.expenses.create(createInput());
 
-    const detail = await caller.groups.detail({ groupId: group.id });
+    const detail = await caller.groups.detail({ groupId: group.id, userId: alice.id });
     expect(detail.expenses.map((e) => e.archivedAt)).toEqual([undefined]);
   });
 });
@@ -420,7 +420,7 @@ describe("expenses.list", () => {
     const older = addExpense(group, alice, 1000, { createdAt: "2026-01-01T10:00:00.000Z" });
     const newer = addExpense(flat, bob, 2000, { createdAt: "2026-02-01T10:00:00.000Z" });
 
-    const rows = await testCaller().expenses.list({});
+    const rows = await testCaller().expenses.list({ userId: alice.id });
 
     expect(rows.map((e) => [e.id, e.groupName])).toEqual([
       [newer.id, "Flat"],
@@ -433,7 +433,7 @@ describe("expenses.list", () => {
     addExpense(flat, bob, 2000);
     const mine = addExpense(group, alice, 1000);
 
-    const rows = await testCaller().expenses.list({ groupId: group.id });
+    const rows = await testCaller().expenses.list({ userId: alice.id, groupId: group.id });
     expect(rows.map((e) => e.id)).toEqual([mine.id]);
   });
 
@@ -444,18 +444,18 @@ describe("expenses.list", () => {
     settleUp(flat);
     await caller.groups.archive({ groupId: flat.id });
 
-    expect(await caller.expenses.list({})).toEqual([]);
-    expect((await caller.expenses.list({ groupId: flat.id })).map((e) => e.id)).toEqual([archived.id]);
+    expect(await caller.expenses.list({ userId: alice.id })).toEqual([]);
+    expect((await caller.expenses.list({ userId: alice.id, groupId: flat.id })).map((e) => e.id)).toEqual([archived.id]);
   });
 
   it("rejects a group that doesn't exist", async () => {
-    await expect(testCaller().expenses.list({ groupId: "missing" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(testCaller().expenses.list({ userId: alice.id, groupId: "missing" })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("caps how many rows it returns", async () => {
     for (let i = 0; i < 1001; i += 1) addExpense(group, alice, 100);
 
-    expect(await testCaller().expenses.list({})).toHaveLength(1000);
+    expect(await testCaller().expenses.list({ userId: alice.id })).toHaveLength(1000);
   });
 });
 
@@ -486,7 +486,7 @@ describe("expenses.update payer", () => {
     });
 
     expect(updated).toMatchObject({ paidByUserId: bob.id, paidByUserName: "Bob" });
-    const { balances } = await caller.groups.detail({ groupId: group.id });
+    const { balances } = await caller.groups.detail({ groupId: group.id, userId: alice.id });
     expect(balances.find((b) => b.userId === bob.id)?.netCents).toBeGreaterThan(0);
     expect(balances.find((b) => b.userId === alice.id)?.netCents).toBeLessThan(0);
   });
@@ -525,12 +525,12 @@ describe("expenses.restore", () => {
   it("brings back a deleted expense and its effect on balances", async () => {
     const caller = testCaller();
     const expense = addExpense(group, alice, 3000);
-    const before = await caller.groups.detail({ groupId: group.id });
+    const before = await caller.groups.detail({ groupId: group.id, userId: alice.id });
     await caller.expenses.delete({ expenseId: expense.id, userId: alice.id });
 
     await caller.expenses.restore({ expenseId: expense.id, userId: alice.id });
 
-    const after = await caller.groups.detail({ groupId: group.id });
+    const after = await caller.groups.detail({ groupId: group.id, userId: alice.id });
     expect(after.expenses.map((e) => e.id)).toEqual([expense.id]);
     expect(after.balances).toEqual(before.balances);
   });
@@ -596,3 +596,52 @@ describe("expenses.previewSplit for an existing expense", () => {
   });
 });
 
+describe("only the payer changes an expense", () => {
+  it("refuses an edit from someone else and changes nothing", async () => {
+    const expense = addExpense(group, alice, 3000, { description: "Dinner" });
+
+    await expect(
+      testCaller().expenses.update({ expenseId: expense.id, description: "Mine now", amountCents: 1, userId: bob.id })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.expenses.get(expense.id)).toMatchObject({ description: "Dinner", amountCents: 3000 });
+  });
+
+  it("refuses a delete from someone else and keeps the expense", async () => {
+    const expense = addExpense(group, alice, 3000);
+
+    await expect(testCaller().expenses.delete({ expenseId: expense.id, userId: bob.id })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(db.expenses.has(expense.id)).toBe(true);
+  });
+
+  it("refuses a restore from someone else", async () => {
+    const caller = testCaller();
+    const expense = addExpense(group, alice, 3000);
+    await caller.expenses.delete({ expenseId: expense.id, userId: alice.id });
+
+    await expect(caller.expenses.restore({ expenseId: expense.id, userId: bob.id })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(db.expenses.has(expense.id)).toBe(false);
+  });
+});
+
+describe("expenses.list is scoped to the user's groups", () => {
+  it("leaves out groups they aren't in", async () => {
+    const outsiderGroup = makeGroup("Not Alice's", [bob, carol]);
+    addExpense(outsiderGroup, bob, 1000);
+    const mine = addExpense(group, alice, 1000);
+
+    const rows = await testCaller().expenses.list({ userId: alice.id });
+    expect(rows.map((e) => e.id)).toEqual([mine.id]);
+  });
+
+  it("treats a group they aren't in like one that doesn't exist", async () => {
+    const outsiderGroup = makeGroup("Not Alice's", [bob, carol]);
+
+    await expect(testCaller().expenses.list({ userId: alice.id, groupId: outsiderGroup.id })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+});
