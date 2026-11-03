@@ -223,13 +223,13 @@ describe("groups.create", () => {
   });
 });
 
-describe("groups.addMember", () => {
+describe("groups.addMembers, one person", () => {
   it("adds the user and charges them only for later expenses", async () => {
     const caller = testCaller();
     const dave = makeUser("Dave");
     addExpense(group, alice, 3000);
 
-    await caller.groups.addMember({ groupId: group.id, userId: dave.id });
+    await caller.groups.addMembers({ groupId: group.id, userIds: [dave.id] });
 
     let detail = await caller.groups.detail({ groupId: group.id });
     expect(detail.members.map((m) => m.id)).toContain(dave.id);
@@ -243,24 +243,24 @@ describe("groups.addMember", () => {
   });
 
   it("is a no-op for someone who is already a member", async () => {
-    const updated = await testCaller().groups.addMember({ groupId: group.id, userId: alice.id });
+    const updated = await testCaller().groups.addMembers({ groupId: group.id, userIds: [alice.id] });
     expect(updated.memberIds).toEqual([alice.id, bob.id, carol.id]);
   });
 
   it("rejects a user id that doesn't exist", async () => {
-    await expect(testCaller().groups.addMember({ groupId: group.id, userId: "ghost" })).rejects.toThrow();
+    await expect(testCaller().groups.addMembers({ groupId: group.id, userIds: ["ghost"] })).rejects.toThrow();
   });
 
   it("rejects an unknown group", async () => {
-    await expect(testCaller().groups.addMember({ groupId: "missing", userId: alice.id })).rejects.toThrow(/not found/i);
+    await expect(testCaller().groups.addMembers({ groupId: "missing", userIds: [alice.id] })).rejects.toThrow(/not found/i);
   });
 });
 
-describe("groups.removeMember", () => {
+describe("groups.removeMembers, one person", () => {
   it("removes a member and stops charging them for later expenses", async () => {
     const caller = testCaller();
 
-    await caller.groups.removeMember({ groupId: group.id, userId: carol.id });
+    await caller.groups.removeMembers({ groupId: group.id, userIds: [carol.id] });
     const expense = await caller.expenses.create({
       groupId: group.id,
       description: "Taxi",
@@ -276,7 +276,7 @@ describe("groups.removeMember", () => {
     const caller = testCaller();
     addExpense(group, alice, 3000);
 
-    await expect(caller.groups.removeMember({ groupId: group.id, userId: carol.id })).rejects.toThrow(
+    await expect(caller.groups.removeMembers({ groupId: group.id, userIds: [carol.id] })).rejects.toThrow(
       /outstanding balance/i
     );
 
@@ -288,7 +288,7 @@ describe("groups.removeMember", () => {
     addExpense(group, alice, 3000);
     addSettlement(group, carol, alice, 1000);
 
-    await caller.groups.removeMember({ groupId: group.id, userId: carol.id });
+    await caller.groups.removeMembers({ groupId: group.id, userIds: [carol.id] });
 
     const detail = await caller.groups.detail({ groupId: group.id });
     expect(detail.members.map((m) => m.id)).toEqual([alice.id, bob.id]);
@@ -299,14 +299,14 @@ describe("groups.removeMember", () => {
   it("refuses to remove the last member", async () => {
     const solo = makeGroup("Solo", [alice]);
 
-    await expect(testCaller().groups.removeMember({ groupId: solo.id, userId: alice.id })).rejects.toThrow(/last member/i);
+    await expect(testCaller().groups.removeMembers({ groupId: solo.id, userIds: [alice.id] })).rejects.toThrow(/last member/i);
 
     expect(db.groups.get(solo.id)?.memberIds).toEqual([alice.id]);
   });
 
   it("rejects removing someone who isn't a member", async () => {
     const outsider = makeUser("Outsider");
-    await expect(testCaller().groups.removeMember({ groupId: group.id, userId: outsider.id })).rejects.toThrow(
+    await expect(testCaller().groups.removeMembers({ groupId: group.id, userIds: [outsider.id] })).rejects.toThrow(
       /isn't a member/i
     );
   });
@@ -316,7 +316,7 @@ describe("groups.removeMember", () => {
     addExpense(group, alice, 3000);
 
     // Refusing the removal is also a valid way to protect the balance.
-    await caller.groups.removeMember({ groupId: group.id, userId: carol.id }).catch(() => undefined);
+    await caller.groups.removeMembers({ groupId: group.id, userIds: [carol.id] }).catch(() => undefined);
 
     const detail = await caller.groups.detail({ groupId: group.id });
     expect(sumNet(detail.balances)).toBe(0);
@@ -327,7 +327,7 @@ describe("groups.removeMember", () => {
     const caller = testCaller();
     addExpense(group, alice, 3000);
 
-    await caller.groups.removeMember({ groupId: group.id, userId: carol.id }).catch(() => undefined);
+    await caller.groups.removeMembers({ groupId: group.id, userIds: [carol.id] }).catch(() => undefined);
 
     const detail = await caller.groups.detail({ groupId: group.id });
     const memberIds = detail.members.map((m) => m.id);
@@ -335,7 +335,7 @@ describe("groups.removeMember", () => {
   });
 
   it("rejects an unknown group", async () => {
-    await expect(testCaller().groups.removeMember({ groupId: "missing", userId: alice.id })).rejects.toThrow(
+    await expect(testCaller().groups.removeMembers({ groupId: "missing", userIds: [alice.id] })).rejects.toThrow(
       /not found/i
     );
   });
@@ -395,7 +395,7 @@ describe("groups.detail", () => {
   describe("formerMembers", () => {
     async function removeCarol() {
       settleUp(group);
-      await testCaller().groups.removeMember({ groupId: group.id, userId: carol.id });
+      await testCaller().groups.removeMembers({ groupId: group.id, userIds: [carol.id] });
     }
 
     it("names a removed member who paid for an expense, with only their id and name", async () => {
@@ -449,7 +449,7 @@ describe("groups.detail", () => {
     });
 
     it("leaves out current members and removed members with no history", async () => {
-      await testCaller().groups.removeMember({ groupId: group.id, userId: carol.id });
+      await testCaller().groups.removeMembers({ groupId: group.id, userIds: [carol.id] });
 
       const detail = await testCaller().groups.detail({ groupId: group.id });
 
@@ -551,5 +551,109 @@ describe("groups.list lastActivityAt", () => {
 
     const listed = (await testCaller().groups.list()).find((g) => g.id === busy.id);
     expect(listed?.lastActivityAt).toBe("2030-02-01T10:00:00.000Z");
+  });
+});
+
+describe("groups.addMembers", () => {
+  it("adds everyone, keeps existing members first and ignores duplicates", async () => {
+    const dave = makeUser("Dave");
+    const erin = makeUser("Erin");
+    const crew = makeGroup("Crew", [alice]);
+
+    const updated = await testCaller().groups.addMembers({ groupId: crew.id, userIds: [dave.id, erin.id, dave.id, alice.id] });
+
+    expect(updated.memberIds).toEqual([alice.id, dave.id, erin.id]);
+  });
+
+  it("shares only expenses added after they join", async () => {
+    const caller = testCaller();
+    const dave = makeUser("Dave");
+    const crew = makeGroup("Crew", [alice, bob]);
+    const before = addExpense(crew, alice, 1000);
+
+    await caller.groups.addMembers({ groupId: crew.id, userIds: [dave.id] });
+
+    expect(before.splits.map((s) => s.userId)).not.toContain(dave.id);
+    const { balances } = await caller.groups.detail({ groupId: crew.id });
+    expect(balances.find((b) => b.userId === dave.id)?.netCents).toBe(0);
+  });
+
+  it("changes nothing when one person doesn't exist", async () => {
+    const dave = makeUser("Dave");
+    const crew = makeGroup("Crew", [alice]);
+
+    await expect(
+      testCaller().groups.addMembers({ groupId: crew.id, userIds: [dave.id, "ghost"] })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(db.groups.get(crew.id)?.memberIds).toEqual([alice.id]);
+  });
+
+  it("rejects a group that doesn't exist", async () => {
+    await expect(testCaller().groups.addMembers({ groupId: "missing", userIds: [alice.id] })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("refuses an archived group", async () => {
+    const caller = testCaller();
+    const crew = makeGroup("Crew", [alice]);
+    await caller.groups.archive({ groupId: crew.id });
+
+    await expect(caller.groups.addMembers({ groupId: crew.id, userIds: [bob.id] })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+  });
+
+  it("requires at least one person and caps the request", async () => {
+    const crew = makeGroup("Crew", [alice]);
+    const caller = testCaller();
+
+    await expect(caller.groups.addMembers({ groupId: crew.id, userIds: [] })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    await expect(
+      caller.groups.addMembers({ groupId: crew.id, userIds: Array.from({ length: 201 }, () => bob.id) })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+});
+
+describe("groups.removeMembers", () => {
+  it("removes everyone at once", async () => {
+    const updated = await testCaller().groups.removeMembers({ groupId: group.id, userIds: [bob.id, carol.id] });
+    expect(updated.memberIds).toEqual([alice.id]);
+  });
+
+  it("removes no one when any of them has a balance", async () => {
+    addExpense(group, alice, 3000);
+
+    await expect(
+      testCaller().groups.removeMembers({ groupId: group.id, userIds: [bob.id, carol.id] })
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(db.groups.get(group.id)?.memberIds).toEqual([alice.id, bob.id, carol.id]);
+  });
+
+  it("removes no one when any of them isn't a member", async () => {
+    const outsider = makeUser("Outsider");
+
+    await expect(
+      testCaller().groups.removeMembers({ groupId: group.id, userIds: [bob.id, outsider.id] })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(db.groups.get(group.id)?.memberIds).toContain(bob.id);
+  });
+
+  it("refuses to empty the group", async () => {
+    await expect(
+      testCaller().groups.removeMembers({ groupId: group.id, userIds: [alice.id, bob.id, carol.id] })
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("refuses an archived group", async () => {
+    const caller = testCaller();
+    await caller.groups.archive({ groupId: group.id });
+
+    await expect(caller.groups.removeMembers({ groupId: group.id, userIds: [bob.id] })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+    expect(db.groups.get(group.id)?.memberIds).toContain(bob.id);
   });
 });

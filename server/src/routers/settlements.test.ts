@@ -79,7 +79,7 @@ describe("settlements.create", () => {
     const caller = testCaller();
     const expense = addExpense(group, alice, 3000);
     await caller.settlements.create({ groupId: group.id, fromUserId: carol.id, toUserId: alice.id, amountCents: 1000 });
-    await caller.groups.removeMember({ groupId: group.id, userId: carol.id });
+    await caller.groups.removeMembers({ groupId: group.id, userIds: [carol.id] });
     await caller.expenses.update({ expenseId: expense.id, description: expense.description, amountCents: 6000 });
 
     await caller.settlements.create({ groupId: group.id, fromUserId: carol.id, toUserId: alice.id, amountCents: 1000 });

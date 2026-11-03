@@ -870,6 +870,19 @@
   .app-option.is-active {
     background: var(--bg-sunken);
   }
+  .app-option--danger {
+    color: var(--danger);
+  }
+  .app-option--danger[data-highlighted] {
+    background: var(--danger-soft);
+  }
+  .app-option[data-disabled] {
+    cursor: default;
+  }
+  .app-option[data-disabled] > .app-icon,
+  .app-option[data-disabled] .app-option__title {
+    opacity: 0.5;
+  }
 
   /* Searchable multi-select */
   .app-ms {
@@ -1228,6 +1241,12 @@
     }
     .app-option:hover {
       background: var(--bg-sunken);
+    }
+    .app-option--danger:hover {
+      background: var(--danger-soft);
+    }
+    .app-option[data-disabled]:hover {
+      background: transparent;
     }
     .app-link:hover {
       color: var(--text-strong);

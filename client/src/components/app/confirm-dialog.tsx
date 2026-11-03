@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import { Dialog, DialogCard, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
@@ -14,6 +14,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel = "Cancel",
   onConfirm,
+  returnFocusRef,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -23,10 +24,11 @@ export function ConfirmDialog({
   confirmLabel: string;
   cancelLabel?: string;
   onConfirm: () => void;
+  returnFocusRef?: RefObject<HTMLElement | null>;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogCard className="swl-dialog">
+      <DialogCard className="swl-dialog" returnFocusRef={returnFocusRef}>
         <DialogTitle className="swl-dialog__title">{title}</DialogTitle>
         <DialogDescription className="swl-dialog__q">{question}</DialogDescription>
         {body && <div className="swl-dialog__body">{body}</div>}
@@ -42,9 +44,6 @@ export function ConfirmDialog({
             }}
           >
             {confirmLabel}
-          </Button>
-          <Button variant="secondary" width={218} onClick={() => onOpenChange(false)}>
-            {cancelLabel}
           </Button>
         </div>
       </DialogCard>

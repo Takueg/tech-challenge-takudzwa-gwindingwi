@@ -1,12 +1,13 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type RefObject } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { DropdownMenu } from "radix-ui";
 import { Link, useParams } from "react-router-dom";
+import { AddMemberDialog } from "@/components/app/add-member-dialog";
 import { useAppDialogs } from "@/components/app/app-dialogs";
 import { IconTile } from "@/components/app/category-tile";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { ExpenseFormDialog } from "@/components/app/expense-form-dialog";
 import { ExpensesTable } from "@/components/app/expenses-table";
-import { FieldError } from "@/components/app/form-parts";
 import { Breadcrumb, HeaderActions, PageLayout } from "@/components/app/page-layout";
 import { Panel } from "@/components/app/panel";
 import { SpendingPanels } from "@/components/app/spending-panels";
@@ -14,8 +15,6 @@ import { ErrorState } from "@/components/app/states";
 import { SummaryCard, SummaryCardSkeleton } from "@/components/app/summary-card";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SegmentedControl, Tabs, TabsContent } from "@/components/ui/tabs";
 import { useCurrentUser } from "@/context/current-user";
@@ -39,6 +38,7 @@ type ConfirmState = {
   confirmLabel: string;
   cancelLabel: string;
   onConfirm: () => void;
+  fromOptionsMenu?: boolean;
 };
 
 const TABS = ["Expenses", "Balances", "Members"];
@@ -221,67 +221,116 @@ function BalancesTab({
   );
 }
 
-function MembersTab({
-  data,
-  readOnly,
+/**
+ * The only place to archive or delete a group. Neither is allowed while anyone owes money, which the server
+ * also enforces. The menu lines up under the group name, not the button.
+ */
+function GroupOptionsMenu({
+  groupName,
+  archived,
+  hasOpenBalances,
+  titleRef,
+  triggerRef,
   onArchive,
+  onUnarchive,
   onDelete,
 }: {
-  data: Detail;
-  readOnly: boolean;
+  groupName: string;
+  archived: boolean;
+  hasOpenBalances: boolean;
+  titleRef: RefObject<HTMLHeadingElement | null>;
+  triggerRef: RefObject<HTMLButtonElement | null>;
   onArchive: () => void;
+  onUnarchive: () => void;
   onDelete: () => void;
 }) {
+  const [alignOffset, setAlignOffset] = useState(0);
+  const title = "flex flex-col gap-[3px]";
+  const settleFirst = "Everyone needs to settle up first";
+  const description = "[font:400_13px/18px_var(--font-poppins)] text-muted-foreground";
+  return (
+    <DropdownMenu.Root
+      modal={false}
+      onOpenChange={(open) => {
+        const [name, trigger] = [titleRef.current, triggerRef.current];
+        if (open && name && trigger) {
+          setAlignOffset(name.getBoundingClientRect().left - trigger.getBoundingClientRect().left);
+        }
+      }}
+    >
+      <DropdownMenu.Trigger
+        ref={triggerRef}
+        className="app-iconbtn"
+        aria-label={`Group options for ${groupName}`}
+        title="Group options"
+      >
+        <span aria-hidden="true" className="flex size-8 items-center justify-center rounded-full bg-honeydew text-ink">
+          <Icon name="more_horiz" size={20} />
+        </span>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          align="start"
+          alignOffset={alignOffset}
+          sideOffset={8}
+          aria-label="Group options"
+          className="z-40 box-border flex w-[320px] flex-col gap-0.5 rounded-[20px] bg-dialog p-2.5 text-foreground"
+        >
+          <DropdownMenu.Item
+            className="app-option"
+            disabled={!archived && hasOpenBalances}
+            onSelect={archived ? onUnarchive : onArchive}
+          >
+            <Icon name="archive" size={20} />
+            <span className={title}>
+              <span className="app-option__title">{archived ? "Unarchive Group" : "Archive Group"}</span>
+              <span className={description}>
+                {archived
+                  ? "Put it back on your dashboard"
+                  : hasOpenBalances
+                    ? settleFirst
+                    : "Hide it from your dashboard and make it read-only"}
+              </span>
+            </span>
+          </DropdownMenu.Item>
+          <DropdownMenu.Separator className="mx-2.5 my-1.5 h-px bg-[var(--rule)]" />
+          <DropdownMenu.Item className="app-option app-option--danger" disabled={hasOpenBalances} onSelect={onDelete}>
+            <Icon name="delete" size={20} />
+            <span className={title}>
+              <span className="app-option__title">Delete Group</span>
+              <span className={description}>
+                {hasOpenBalances ? settleFirst : "Removes every expense and payment. Can’t be undone."}
+              </span>
+            </span>
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+}
+
+function MembersTab({ data, readOnly }: { data: Detail; readOnly: boolean }) {
   const trpc = useTRPC();
   const invalidate = useInvalidateExpenseData();
   const undo = useUndo();
   const { currentUserId } = useCurrentUser();
   const { group, members, balances } = data;
-  const { data: users } = useQuery(trpc.users.list.queryOptions());
-  const [candidateId, setCandidateId] = useState("");
-  const [addError, setAddError] = useState("");
-
-  const candidates = (users ?? []).filter((user) => !members.some((member) => member.id === user.id));
   const netOf = (userId: string) => balances.find((balance) => balance.userId === userId)?.netCents ?? 0;
 
   const remove = useMutation(
-    trpc.groups.removeMember.mutationOptions({
+    trpc.groups.removeMembers.mutationOptions({
       meta: { errorTitle: "Couldn’t Remove Member" },
-      onSuccess: (_group, { userId }) => {
+      onSuccess: (_group, { userIds }) => {
         invalidate();
-        const name = members.find((member) => member.id === userId)?.name ?? "They";
+        const name = members.find((member) => member.id === userIds[0])?.name ?? "They";
         notify.success({
           title: `${name} Removed`,
           body: `${name} no longer shares new expenses in ${group.name}.`,
-          onUndo: () => undo(() => trpcClient.groups.addMember.mutate({ groupId: group.id, userId })),
+          onUndo: () => undo(() => trpcClient.groups.addMembers.mutate({ groupId: group.id, userIds })),
         });
       },
     })
   );
-  const add = useMutation(
-    trpc.groups.addMember.mutationOptions({
-      meta: { errorTitle: "Couldn’t Add Member" },
-      onSuccess: (_group, { userId }) => {
-        invalidate();
-        setCandidateId("");
-        const name = users?.find((user) => user.id === userId)?.name ?? "They";
-        notify.success({
-          title: `${name} Joined ${group.name}`,
-          body: "They’ll share expenses added from now on.",
-          onUndo: () => undo(() => trpcClient.groups.removeMember.mutate({ groupId: group.id, userId })),
-        });
-      },
-    })
-  );
-
-  function submitMember(event: FormEvent) {
-    event.preventDefault();
-    if (!candidateId) {
-      setAddError(candidates.length ? "Choose someone to add" : "Everyone you know is already in this group");
-      return;
-    }
-    add.mutate({ groupId: group.id, userId: candidateId });
-  }
 
   const memberNote = (userId: string, index: number) => {
     if (userId === currentUserId) return index === 0 ? "Group creator" : "Member";
@@ -292,90 +341,32 @@ function MembersTab({
   };
 
   return (
-    <div className="flex flex-wrap items-start gap-6">
-      <Panel title="Members" className="flex-[999_1_560px]">
-        <ul className="m-0 flex list-none flex-col gap-3.5 p-0">
-          {members.map((member, index) => (
-            <li key={member.id} className="flex flex-wrap items-center gap-3.5">
-              <Initial name={member.name} size={44} className="bg-honeydew text-ink" />
-              <span className="flex flex-[1_1_160px] flex-col gap-[3px]">
-                <span className="[font:500_15px/20px_var(--font-poppins)]">
-                  {member.id === currentUserId ? `${member.name} (You)` : member.name}
-                </span>
-                <span className="[font:400_13px/18px_var(--font-poppins)] text-muted-foreground">
-                  {memberNote(member.id, index)}
-                </span>
+    <Panel title="Members">
+      <ul className="m-0 flex list-none flex-col gap-3.5 p-0">
+        {members.map((member, index) => (
+          <li key={member.id} className="flex flex-wrap items-center gap-3.5">
+            <Initial name={member.name} size={44} className="bg-honeydew text-ink" />
+            <span className="flex flex-[1_1_160px] flex-col gap-[3px]">
+              <span className="[font:500_15px/20px_var(--font-poppins)]">
+                {member.id === currentUserId ? `${member.name} (You)` : member.name}
               </span>
-              {member.id !== currentUserId && netOf(member.id) === 0 && (
-                <Button
-                  variant="text"
-                  disabled={readOnly || remove.isPending}
-                  onClick={() => remove.mutate({ groupId: group.id, userId: member.id })}
-                >
-                  Remove
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
-        <form
-          noValidate
-          onSubmit={submitMember}
-          className="flex flex-wrap items-start gap-4 border-0 border-t border-solid border-t-[rgba(0,208,158,0.25)] pt-[18px]"
-        >
-          <div className="flex min-w-0 flex-[1_1_220px] flex-col gap-2">
-            <Label id="am-label">Add A Member</Label>
-            <Select
-              inPanel
-              aria-labelledby="am-label"
-              options={candidates.map((user) => ({ value: user.id, label: user.name }))}
-              placeholder="Choose a person"
-              value={candidateId}
-              onValueChange={(value) => {
-                setCandidateId(value);
-                setAddError("");
-              }}
-              invalid={Boolean(addError)}
-              disabled={readOnly}
-            />
-            {addError && <FieldError>{addError}</FieldError>}
-            <span className="app-hint">New members share expenses added after they join.</span>
-          </div>
-          <div className="pt-[19px]">
-            <Button type="submit" disabled={readOnly || add.isPending}>
-              Add Member
-            </Button>
-          </div>
-        </form>
-      </Panel>
-      <Panel title="Group Settings" className="flex-[1_1_320px]">
-        <div className="flex flex-col gap-2">
-          <strong className="[font:600_15px/20px_var(--font-poppins)]">Archive Group</strong>
-          <span className="[font:400_14px/20px_var(--font-poppins)] text-muted-foreground">
-            Hide it from your dashboard and make it read-only. Balances are kept and you can unarchive any time.
-          </span>
-          <div>
-            <Button variant="outline" className="mt-1.5" disabled={readOnly} onClick={onArchive}>
-              <Icon name="archive" size={20} />
-              Archive Group
-            </Button>
-          </div>
-        </div>
-        <div className="h-px bg-[var(--rule)]" />
-        <div className="flex flex-col gap-2">
-          <strong className="[font:600_15px/20px_var(--font-poppins)]">Delete Group</strong>
-          <span className="[font:400_14px/20px_var(--font-poppins)] text-muted-foreground">
-            Permanently removes every expense and payment for all members. This can’t be undone.
-          </span>
-          <div>
-            <Button variant="danger" className="mt-1.5" onClick={onDelete}>
-              <Icon name="delete" size={20} />
-              Delete Group
-            </Button>
-          </div>
-        </div>
-      </Panel>
-    </div>
+              <span className="[font:400_13px/18px_var(--font-poppins)] text-muted-foreground">
+                {memberNote(member.id, index)}
+              </span>
+            </span>
+            {member.id !== currentUserId && netOf(member.id) === 0 && (
+              <Button
+                variant="text"
+                disabled={readOnly || remove.isPending}
+                onClick={() => remove.mutate({ groupId: group.id, userIds: [member.id] })}
+              >
+                Remove
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </Panel>
   );
 }
 
@@ -394,9 +385,12 @@ function GroupDetail({ groupId }: { groupId: string }) {
   const detail = useQuery(trpc.groups.detail.queryOptions({ groupId }));
   const [tab, setTab] = useState(TABS[0]);
   const [formOpen, setFormOpen] = useState(false);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [editing, setEditing] = useState<Expense | undefined>();
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [deletedName, setDeletedName] = useState<string | null>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const optionsRef = useRef<HTMLButtonElement>(null);
 
   const deleteExpense = useMutation(
     trpc.expenses.delete.mutationOptions({
@@ -483,7 +477,6 @@ function GroupDetail({ groupId }: { groupId: string }) {
 
   const tableExpenses = (data?.expenses ?? []).map((expense) => ({ ...expense, groupName }));
   const spenders = spendersFromExpenses(data?.expenses ?? []);
-  const unsettled = data?.suggestedTransfers.length ?? 0;
 
   const askDeleteExpense = (expenseId: string) => {
     const expense = data?.expenses.find((candidate) => candidate.id === expenseId);
@@ -523,15 +516,17 @@ function GroupDetail({ groupId }: { groupId: string }) {
       confirmLabel: "Yes, Archive",
       cancelLabel: "Cancel",
       onConfirm: () => archive.mutate({ groupId }),
+      fromOptionsMenu: true,
     });
   const askDeleteGroup = () =>
     setConfirm({
       title: `Delete ${groupName}?`,
       question: "This can’t be undone.",
-      body: `It permanently deletes ${plural(data?.expenses.length ?? 0, "expense")} and ${plural(data?.settlements.length ?? 0, "payment")} for everyone in the group.${unsettled ? " Everyone needs to settle up first." : ""}`,
+      body: `It permanently deletes ${plural(data?.expenses.length ?? 0, "expense")} and ${plural(data?.settlements.length ?? 0, "payment")} for everyone in the group.`,
       confirmLabel: "Yes, Delete Group",
       cancelLabel: "Keep Group",
       onConfirm: () => removeGroup.mutate({ groupId }),
+      fromOptionsMenu: true,
     });
 
   const header = (
@@ -544,9 +539,25 @@ function GroupDetail({ groupId }: { groupId: string }) {
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div className="flex min-w-0 flex-col gap-3">
             {loading ? (
-              <Skeleton onScreen width={260} height={36} />
+              <span className="flex min-h-11 items-center">
+                <Skeleton onScreen width={260} height={36} />
+              </span>
             ) : (
-              <h1 className="m-0 [font:600_30px/36px_var(--font-poppins)]">{data?.group.name}</h1>
+              <div className="flex items-center gap-1.5">
+                <h1 ref={titleRef} className="m-0 [font:600_30px/36px_var(--font-poppins)]">
+                  {data?.group.name}
+                </h1>
+                <GroupOptionsMenu
+                  groupName={groupName}
+                  archived={readOnly}
+                  hasOpenBalances={Boolean(data?.balances.some((balance) => balance.netCents !== 0))}
+                  titleRef={titleRef}
+                  triggerRef={optionsRef}
+                  onArchive={askArchive}
+                  onUnarchive={() => unarchive.mutate({ groupId })}
+                  onDelete={askDeleteGroup}
+                />
+              </div>
             )}
             {loading ? (
               <span aria-hidden="true" className="flex gap-1">
@@ -642,15 +653,25 @@ function GroupDetail({ groupId }: { groupId: string }) {
             <div className="w-[460px] max-w-full">
               <SegmentedControl options={TABS} aria-label="Group sections" />
             </div>
-            <Button
-              disabled={readOnly || loading}
-              onClick={() => {
-                setEditing(undefined);
-                setFormOpen(true);
-              }}
-            >
-              Add Expense
-            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                variant="secondary"
+                className="bg-sunken text-foreground"
+                disabled={readOnly || loading}
+                onClick={() => setAddMemberOpen(true)}
+              >
+                Add Member
+              </Button>
+              <Button
+                disabled={readOnly || loading}
+                onClick={() => {
+                  setEditing(undefined);
+                  setFormOpen(true);
+                }}
+              >
+                Add Expense
+              </Button>
+            </div>
           </div>
 
           <TabsContent value="Expenses" className="flex flex-col gap-6">
@@ -697,7 +718,7 @@ function GroupDetail({ groupId }: { groupId: string }) {
             {loading || !data ? (
               <LoadingPanels />
             ) : (
-              <MembersTab data={data} readOnly={readOnly} onArchive={askArchive} onDelete={askDeleteGroup} />
+              <MembersTab data={data} readOnly={readOnly} />
             )}
           </TabsContent>
         </Tabs>
@@ -716,6 +737,15 @@ function GroupDetail({ groupId }: { groupId: string }) {
           }}
         />
       )}
+      {addMemberOpen && data && (
+        <AddMemberDialog
+          groupId={groupId}
+          groupName={groupName}
+          memberIds={data.group.memberIds}
+          onClose={() => setAddMemberOpen(false)}
+          onAdded={() => setTab("Members")}
+        />
+      )}
       {confirm && (
         <ConfirmDialog
           open
@@ -726,6 +756,7 @@ function GroupDetail({ groupId }: { groupId: string }) {
           confirmLabel={confirm.confirmLabel}
           cancelLabel={confirm.cancelLabel}
           onConfirm={confirm.onConfirm}
+          returnFocusRef={confirm.fromOptionsMenu ? optionsRef : undefined}
         />
       )}
     </PageLayout>

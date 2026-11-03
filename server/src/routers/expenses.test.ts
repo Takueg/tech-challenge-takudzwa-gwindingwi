@@ -137,9 +137,9 @@ describe("expenses.create, details", () => {
     const dave = makeUser("Dave");
     const expense = await caller.expenses.create(createInput());
 
-    await caller.groups.addMember({ groupId: group.id, userId: dave.id });
+    await caller.groups.addMembers({ groupId: group.id, userIds: [dave.id] });
     addSettlement(group, carol, alice, 1000);
-    await caller.groups.removeMember({ groupId: group.id, userId: carol.id });
+    await caller.groups.removeMembers({ groupId: group.id, userIds: [carol.id] });
 
     const detail = await caller.groups.detail({ groupId: group.id });
     expect(detail.expenses.find((e) => e.id === expense.id)?.splits.map((s) => s.userId)).toEqual([
@@ -233,7 +233,7 @@ describe("expenses.update", () => {
     const caller = testCaller();
     const expense = addExpense(group, alice, 3000);
     addSettlement(group, carol, alice, 1000);
-    await caller.groups.removeMember({ groupId: group.id, userId: carol.id });
+    await caller.groups.removeMembers({ groupId: group.id, userIds: [carol.id] });
 
     const updated = await caller.expenses.update({ expenseId: expense.id, description: "Edit", amountCents: 6000 });
 

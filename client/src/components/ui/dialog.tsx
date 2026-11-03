@@ -12,8 +12,14 @@ function DialogCard({
   top,
   style,
   children,
+  returnFocusRef,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content> & { width?: number; top?: boolean }) {
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  width?: number;
+  top?: boolean;
+  /** For an opener that's gone by the time the dialog closes, like a menu item. */
+  returnFocusRef?: React.RefObject<HTMLElement | null>;
+}) {
   // Radix only returns focus to its own Trigger, and these dialogs are opened from code.
   const [opener] = React.useState(() => document.activeElement as HTMLElement | null);
   return (
@@ -29,7 +35,7 @@ function DialogCard({
           style={{ width, ...style }}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
-            opener?.focus();
+            (returnFocusRef?.current ?? opener)?.focus();
           }}
           {...props}
         >

@@ -9,10 +9,12 @@ export function useUndo() {
   return async (run: () => Promise<unknown>, done?: { title: string; body?: string }) => {
     try {
       await run();
-      invalidate();
       if (done) notify.info(done);
     } catch (error) {
       notify.error({ title: "Couldn’t Undo", body: errorMessage(error) });
+    } finally {
+      // Even a refused undo may mean the screen is out of date.
+      invalidate();
     }
   };
 }
