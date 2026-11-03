@@ -152,8 +152,27 @@ describe("expenses.create, details", () => {
     expect(netOf(detail.balances, dave)).toBe(0);
   });
 
+  it("keeps every expense when several are created at the same time", async () => {
+    const caller = testCaller();
+
+    await Promise.all(
+      [1000, 2000, 3000, 4000, 5000].map((amountCents) => caller.expenses.create(createInput({ amountCents })))
+    );
+
+    const detail = await caller.groups.detail({ groupId: group.id });
+    expect(detail.expenses).toHaveLength(5);
+    expect(detail.expenses.reduce((sum, e) => sum + e.amountCents, 0)).toBe(15000);
+    expect(Object.values(detail.categoryTotals).reduce((sum, c) => sum + c, 0)).toBe(15000);
+  });
+
   it("rejects an unknown group", async () => {
     await expect(testCaller().expenses.create({ ...createInput(), groupId: "missing" })).rejects.toThrow(/not found/i);
+  });
+
+  it("rejects an amount too large to add up safely", async () => {
+    await expect(
+      testCaller().expenses.create(createInput({ amountCents: Number.MAX_SAFE_INTEGER + 1 }))
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it.each([
@@ -161,6 +180,7 @@ describe("expenses.create, details", () => {
     ["a negative amount", { amountCents: -100 }],
     ["a fractional amount", { amountCents: 10.5 }],
     ["an empty description", { description: "" }],
+    ["a whitespace-only description", { description: "   " }],
   ])("rejects %s", async (_label, override) => {
     await expect(testCaller().expenses.create(createInput(override))).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
@@ -300,7 +320,7 @@ describe("expenses.search", () => {
 });
 
 describe("expenses.previewSplit", () => {
-  it.each([3000])("matches the splits expenses.create produces for %i cents", async (amountCents) => {
+  it.each([3000, 100, 101, 1])("matches the splits expenses.create produces for %i cents", async (amountCents) => {
     const caller = testCaller();
 
     const preview = await caller.expenses.previewSplit({ groupId: group.id, amountCents });
@@ -328,7 +348,7 @@ describe("expenses.previewSplit", () => {
 });
 
 describe("expenses.previewBalances", () => {
-  it.each([3000])(
+  it.each([3000, 100, 200, 101, 1])(
     "matches the real balances after creating an expense of %i cents",
     async (amountCents) => {
       const caller = testCaller();
@@ -347,6 +367,16 @@ describe("expenses.previewBalances", () => {
     }
   );
 
+  it("nets to zero for an amount that doesn't divide evenly", async () => {
+    const preview = await testCaller().expenses.previewBalances({
+      groupId: group.id,
+      amountCents: 100,
+      paidByUserId: alice.id,
+    });
+
+    expect(sumNet(preview.balances)).toBe(0);
+  });
+
   it("does not change anything", async () => {
     const caller = testCaller();
     addExpense(group, alice, 3000);
@@ -355,6 +385,12 @@ describe("expenses.previewBalances", () => {
     await caller.expenses.previewBalances({ groupId: group.id, amountCents: 5000, paidByUserId: bob.id });
 
     expect(await caller.groups.detail({ groupId: group.id })).toEqual(before);
+  });
+
+  it("rejects a payer who isn't a group member", async () => {
+    await expect(
+      testCaller().expenses.previewBalances({ groupId: group.id, amountCents: 100, paidByUserId: "not-a-member" })
+    ).rejects.toThrow();
   });
 
   it("rejects an unknown group", async () => {

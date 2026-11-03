@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Select from "react-select";
+import toast from "react-hot-toast";
 import { useTRPC } from "@/lib/trpc";
 import { useCurrentUser } from "@/context/current-user";
 import { parseAmountToCents } from "@/lib/parse-amount";
@@ -23,13 +24,19 @@ export function QuickAddExpense({ groups }: { groups: Group[] }) {
         setDescription("");
         setAmount("");
       },
+      onError: (error) => {
+        toast.error(error.message);
+      },
     })
   );
 
   const amountCents = parseAmountToCents(amount);
   const canSubmit = groupId && description.trim().length > 0 && amountCents > 0 && currentUserId;
 
-  const groupOptions = groups.map((group) => ({ value: group.id, label: group.name }));
+  // The current user is recorded as the payer, so only their own groups can be picked.
+  const groupOptions = groups
+    .filter((group) => currentUserId && group.memberIds.includes(currentUserId))
+    .map((group) => ({ value: group.id, label: group.name }));
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md border p-3">

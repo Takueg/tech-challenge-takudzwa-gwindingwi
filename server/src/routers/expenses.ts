@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../trpc.js";
-import { db, nextId, type Expense } from "../lib/db.js";
-import { detectExpenseCategory } from "../lib/category.js";
-import { splitStrategyRegistry } from "../lib/split-strategies/index.js";
+import { db } from "../lib/db.js";
+import { computeEqualSplits, createExpense, createExpenseInput } from "../lib/expense-service.js";
+import { amountCentsSchema } from "../lib/schemas.js";
 import { computeNetBalances, simplifyDebts } from "../lib/balances.js";
 
 export const expensesRouter = router({
@@ -15,39 +15,26 @@ export const expensesRouter = router({
   }),
 
   previewSplit: publicProcedure
-    .input(z.object({ groupId: z.string(), amountCents: z.number().int().positive() }))
+    .input(z.object({ groupId: z.string(), amountCents: amountCentsSchema }))
     .query(({ input }) => {
       const group = db.groups.get(input.groupId);
       if (!group) throw new Error(`Group ${input.groupId} not found`);
-
-      // Quick preview math — remainder cents go to the LAST members here,
-      // not the first, unlike the actual EqualSplitStrategy used on submit.
-      const memberIds = group.memberIds;
-      const share = Math.floor(input.amountCents / memberIds.length);
-      const remainder = input.amountCents - share * memberIds.length;
-      return memberIds.map((userId, i) => ({
-        userId,
-        amountCents: share + (i >= memberIds.length - remainder ? 1 : 0),
-      }));
+      return computeEqualSplits(input.amountCents, group.memberIds);
     }),
 
   previewBalances: publicProcedure
-    .input(z.object({ groupId: z.string(), amountCents: z.number().int().positive(), paidByUserId: z.string() }))
+    .input(z.object({ groupId: z.string(), amountCents: amountCentsSchema, paidByUserId: z.string() }))
     .query(({ input }) => {
       const group = db.groups.get(input.groupId);
       if (!group) throw new Error(`Group ${input.groupId} not found`);
+      if (!group.memberIds.includes(input.paidByUserId)) {
+        throw new Error("Payer must be a member of the group");
+      }
 
-      const currentBalances = computeNetBalances(input.groupId);
-      const net = new Map(currentBalances.map((b) => [b.userId, b.netCents]));
-
-      // Layer the hypothetical expense on top of current balances. Uses its
-      // own even-split math (each share rounded independently) rather than
-      // going through previewSplit or the real split strategy.
-      const memberIds = group.memberIds;
-      const roughShare = Math.round(input.amountCents / memberIds.length);
+      const net = new Map(computeNetBalances(input.groupId).map((b) => [b.userId, b.netCents]));
       net.set(input.paidByUserId, (net.get(input.paidByUserId) ?? 0) + input.amountCents);
-      for (const userId of memberIds) {
-        net.set(userId, (net.get(userId) ?? 0) - roughShare);
+      for (const split of computeEqualSplits(input.amountCents, group.memberIds)) {
+        net.set(split.userId, (net.get(split.userId) ?? 0) - split.amountCents);
       }
 
       const projectedBalances = Array.from(net.entries()).map(([userId, netCents]) => ({ userId, netCents }));
@@ -57,49 +44,7 @@ export const expensesRouter = router({
       };
     }),
 
-  create: publicProcedure
-    .input(
-      z.object({
-        groupId: z.string(),
-        description: z.string().min(1),
-        amountCents: z.number().int().positive(),
-        paidByUserId: z.string(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const group = db.groups.get(input.groupId);
-      if (!group) throw new Error(`Group ${input.groupId} not found`);
-      if (!group.memberIds.includes(input.paidByUserId)) {
-        throw new Error("Payer must be a member of the group");
-      }
-
-      const existingForGroup = db.groupExpenseCache.get(input.groupId) ?? [];
-      const category = await detectExpenseCategory(input.description);
-
-      const splitContext = { amountCents: input.amountCents, memberIds: group.memberIds };
-      const strategy = splitStrategyRegistry.resolveByType("equal");
-      const validation = strategy.validate(splitContext);
-      if (!validation.valid) throw new Error(validation.error);
-
-      const now = new Date().toISOString();
-      const expense: Expense = {
-        id: nextId("expense"),
-        groupId: input.groupId,
-        description: input.description,
-        amountCents: input.amountCents,
-        currency: "EUR",
-        paidByUserId: input.paidByUserId,
-        paidByUserName: db.users.get(input.paidByUserId)?.name ?? "Unknown",
-        splits: strategy.computeSplits(splitContext),
-        category,
-        status: "active",
-        createdAt: now,
-        updatedAt: now,
-      };
-      db.expenses.set(expense.id, expense);
-      db.groupExpenseCache.set(input.groupId, [...existingForGroup, expense]);
-      return expense;
-    }),
+  create: publicProcedure.input(createExpenseInput).mutation(({ input }) => createExpense(input)),
 
   uploadReceipt: publicProcedure
     .input(z.object({ expenseId: z.string(), receiptUrl: z.string() }))

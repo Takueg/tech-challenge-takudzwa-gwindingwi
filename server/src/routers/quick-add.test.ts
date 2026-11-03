@@ -42,6 +42,34 @@ describe("quickAdd.create", () => {
     expect(quick.splits.map((s) => s.amountCents)).toEqual([34, 33, 33]);
   });
 
+  it("categorizes a description the same way as expenses.create", async () => {
+    const caller = testCaller();
+
+    const quick = await caller.quickAdd.create(input({ description: "Dinner" }));
+    const full = await caller.expenses.create(input({ description: "Dinner" }));
+
+    expect(quick.category).toBe(full.category);
+  });
+
+  it("rejects a payer who isn't a group member", async () => {
+    const outsider = makeUser("Outsider");
+    await expect(testCaller().quickAdd.create(input({ paidByUserId: outsider.id }))).rejects.toThrow();
+  });
+
+  it("rejects a payer id that doesn't exist", async () => {
+    await expect(testCaller().quickAdd.create(input({ paidByUserId: "ghost" }))).rejects.toThrow();
+  });
+
+  it("never unbalances an empty group", async () => {
+    const caller = testCaller();
+    const empty = makeGroup("Empty", []);
+
+    await caller.quickAdd.create(input({ groupId: empty.id })).catch(() => undefined);
+
+    const { balances } = await caller.groups.detail({ groupId: empty.id });
+    expect(sumNet(balances)).toBe(0);
+  });
+
   it("rejects an unknown group", async () => {
     await expect(testCaller().quickAdd.create(input({ groupId: "missing" }))).rejects.toThrow(/not found/i);
   });
@@ -51,6 +79,7 @@ describe("quickAdd.create", () => {
     ["a negative amount", { amountCents: -100 }],
     ["a fractional amount", { amountCents: 10.5 }],
     ["an empty description", { description: "" }],
+    ["a whitespace-only description", { description: "   " }],
   ])("rejects %s", async (_label, override) => {
     await expect(testCaller().quickAdd.create(input(override))).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
