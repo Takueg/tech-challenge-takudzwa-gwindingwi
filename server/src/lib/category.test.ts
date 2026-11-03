@@ -19,6 +19,16 @@ describe("detectExpenseCategory", () => {
     expect(await detectExpenseCategory("Two flights")).toBe("Travel");
   });
 
+  it.each([
+    ["Team lunches", "Food"],
+    ["Gasoline", "Travel"],
+    ["Two taxis", "Travel"],
+    ["Hostels", "Lodging"],
+    ["Cafes", "Food"],
+  ])("still categorizes %j as %s", async (description, category) => {
+    expect(await detectExpenseCategory(description)).toBe(category);
+  });
+
   it("ignores case", async () => {
     expect(await detectExpenseCategory("DINNER")).toBe("Food");
   });
