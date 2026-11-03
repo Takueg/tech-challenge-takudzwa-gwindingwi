@@ -22,4 +22,13 @@ describe("detectExpenseCategory", () => {
   it("ignores case", async () => {
     expect(await detectExpenseCategory("DINNER")).toBe("Food");
   });
+
+  it.each([
+    ["Cabin rental", "Lodging"],
+    ["Las Vegas hotel", "Lodging"],
+    ["Barber", "Other"],
+    ["Marathon training", "Other"],
+  ])("matches whole words, so %j is %s", async (description, category) => {
+    expect(await detectExpenseCategory(description)).toBe(category);
+  });
 });
