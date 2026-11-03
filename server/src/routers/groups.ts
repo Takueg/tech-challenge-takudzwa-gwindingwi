@@ -4,6 +4,7 @@ import { db, nextId, toPublicUser, type Group } from "../lib/db.js";
 import { computeNetBalances, simplifyDebts } from "../lib/balances.js";
 import { archiveGroup, deleteGroup, unarchiveGroup } from "../lib/group-service.js";
 import { nonBlankStringSchema } from "../lib/schemas.js";
+import { badRequest, conflict, notFound } from "../lib/errors.js";
 
 function listGroupsWithTotals(includeGroup: (group: Group) => boolean) {
   return Array.from(db.groups.values())
@@ -41,7 +42,7 @@ export const groupsRouter = router({
     .mutation(({ input }) => {
       const memberIds = [...new Set(input.memberIds)];
       for (const userId of memberIds) {
-        if (!db.users.has(userId)) throw new Error(`User ${userId} not found`);
+        if (!db.users.has(userId)) throw notFound(`User ${userId} not found`);
       }
 
       const group: Group = {
@@ -59,8 +60,8 @@ export const groupsRouter = router({
     .input(z.object({ groupId: z.string(), userId: z.string() }))
     .mutation(({ input }) => {
       const group = db.groups.get(input.groupId);
-      if (!group) throw new Error(`Group ${input.groupId} not found`);
-      if (!db.users.has(input.userId)) throw new Error(`User ${input.userId} not found`);
+      if (!group) throw notFound(`Group ${input.groupId} not found`);
+      if (!db.users.has(input.userId)) throw notFound(`User ${input.userId} not found`);
       if (!group.memberIds.includes(input.userId)) {
         group.memberIds.push(input.userId);
       }
@@ -71,12 +72,12 @@ export const groupsRouter = router({
     .input(z.object({ groupId: z.string(), userId: z.string() }))
     .mutation(({ input }) => {
       const group = db.groups.get(input.groupId);
-      if (!group) throw new Error(`Group ${input.groupId} not found`);
-      if (!group.memberIds.includes(input.userId)) throw new Error("That person isn't a member of this group");
-      if (group.memberIds.length === 1) throw new Error("Can't remove the last member of a group");
+      if (!group) throw notFound(`Group ${input.groupId} not found`);
+      if (!group.memberIds.includes(input.userId)) throw badRequest("That person isn't a member of this group");
+      if (group.memberIds.length === 1) throw conflict("Can't remove the last member of a group");
       const balance = computeNetBalances(group.id).find((b) => b.userId === input.userId);
       if (balance && balance.netCents !== 0) {
-        throw new Error("This member still has an outstanding balance. Settle up before removing them.");
+        throw conflict("This member still has an outstanding balance. Settle up before removing them.");
       }
       group.memberIds = group.memberIds.filter((id) => id !== input.userId);
       return group;
@@ -89,7 +90,7 @@ export const groupsRouter = router({
 
   detail: publicProcedure.input(z.object({ groupId: z.string() })).query(({ input }) => {
     const group = db.groups.get(input.groupId);
-    if (!group) throw new Error(`Group ${input.groupId} not found`);
+    if (!group) throw notFound(`Group ${input.groupId} not found`);
 
     const members = group.memberIds
       .map((id) => db.users.get(id))

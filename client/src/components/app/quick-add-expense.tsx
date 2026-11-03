@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import Select from "react-select";
-import toast from "react-hot-toast";
 import { useTRPC } from "@/lib/trpc";
 import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
 import { useCurrentUser } from "@/context/current-user";
@@ -23,9 +22,6 @@ export function QuickAddExpense({ groups }: { groups: Group[] }) {
         invalidateExpenseData();
         setDescription("");
         setAmount("");
-      },
-      onError: (error) => {
-        toast.error(error.message);
       },
     })
   );

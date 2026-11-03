@@ -1,15 +1,16 @@
 import { computeNetBalances } from "./balances.js";
 import { db, type Group } from "./db.js";
+import { conflict, notFound } from "./errors.js";
 
 function requireGroup(groupId: string): Group {
   const group = db.groups.get(groupId);
-  if (!group) throw new Error(`Group ${groupId} not found`);
+  if (!group) throw notFound(`Group ${groupId} not found`);
   return group;
 }
 
 function requireSettled(groupId: string, action: string): void {
   if (computeNetBalances(groupId).some((balance) => balance.netCents !== 0)) {
-    throw new Error(`Everyone needs to settle up before this group can be ${action}`);
+    throw conflict(`Everyone needs to settle up before this group can be ${action}`);
   }
 }
 

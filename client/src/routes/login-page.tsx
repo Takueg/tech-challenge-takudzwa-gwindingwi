@@ -80,9 +80,6 @@ export function LoginPage() {
               >
                 Back
               </button>
-              {login.isError && (
-                <p className="text-center text-xs text-red-600">Unknown username or password</p>
-              )}
             </div>
           )}
         </CardContent>

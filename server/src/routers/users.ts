@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../trpc.js";
 import { db, nextId, toPublicUser, type User } from "../lib/db.js";
+import { conflict, notFound } from "../lib/errors.js";
 
 export const usersRouter = router({
   list: publicProcedure.query(() => {
@@ -18,7 +19,7 @@ export const usersRouter = router({
     )
     .mutation(({ input }) => {
       if (Array.from(db.users.values()).some((u) => u.username === input.username)) {
-        throw new Error(`Username ${input.username} is already taken`);
+        throw conflict(`Username ${input.username} is already taken`);
       }
 
       const user: User = {
@@ -43,7 +44,7 @@ export const usersRouter = router({
     )
     .mutation(({ input }) => {
       const user = db.users.get(input.userId);
-      if (!user) throw new Error(`User ${input.userId} not found`);
+      if (!user) throw notFound(`User ${input.userId} not found`);
       user.name = input.name;
       user.email = input.email;
       user.bio = input.bio;
@@ -57,7 +58,7 @@ export const usersRouter = router({
     .input(z.object({ userId: z.string(), avatarUrl: z.string() }))
     .mutation(({ input }) => {
       const user = db.users.get(input.userId);
-      if (!user) throw new Error(`User ${input.userId} not found`);
+      if (!user) throw notFound(`User ${input.userId} not found`);
       user.avatarUrl = input.avatarUrl;
       return toPublicUser(user);
     }),

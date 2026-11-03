@@ -3,6 +3,7 @@ import { db, nextId, type Expense, type ExpenseSplit } from "./db.js";
 import { detectExpenseCategory } from "./category.js";
 import { amountCentsSchema, nonBlankStringSchema } from "./schemas.js";
 import { splitStrategyRegistry } from "./split-strategies/index.js";
+import { badRequest, conflict, notFound } from "./errors.js";
 
 export const createExpenseInput = z.object({
   groupId: z.string(),
@@ -27,10 +28,10 @@ export async function createExpense(input: z.infer<typeof createExpenseInput>): 
   const category = await detectExpenseCategory(input.description);
 
   const group = db.groups.get(input.groupId);
-  if (!group) throw new Error(`Group ${input.groupId} not found`);
-  if (group.archivedAt) throw new Error("Can't add an expense to an archived group");
+  if (!group) throw notFound(`Group ${input.groupId} not found`);
+  if (group.archivedAt) throw conflict("Can't add an expense to an archived group");
   if (!group.memberIds.includes(input.paidByUserId)) {
-    throw new Error("Payer must be a member of the group");
+    throw badRequest("Payer must be a member of the group");
   }
 
   const now = new Date().toISOString();

@@ -14,9 +14,6 @@ export function UnarchiveGroupButton({ groupId }: { groupId: string }) {
         invalidateExpenseData();
         toast.success("Group unarchived");
       },
-      onError: (error) => {
-        toast.error(error.message);
-      },
     })
   );
 

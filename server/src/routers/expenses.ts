@@ -5,11 +5,12 @@ import { detectExpenseCategory } from "../lib/category.js";
 import { computeEqualSplits, createExpense, createExpenseInput, listActiveExpenses } from "../lib/expense-service.js";
 import { amountCentsSchema, nonBlankStringSchema } from "../lib/schemas.js";
 import { computeNetBalances, simplifyDebts } from "../lib/balances.js";
+import { badRequest, conflict, notFound } from "../lib/errors.js";
 
 function requireEditableExpense(expenseId: string): Expense {
   const expense = db.expenses.get(expenseId);
-  if (!expense) throw new Error(`Expense ${expenseId} not found`);
-  if (expense.archivedAt) throw new Error("Can't change an expense in an archived group");
+  if (!expense) throw notFound(`Expense ${expenseId} not found`);
+  if (expense.archivedAt) throw conflict("Can't change an expense in an archived group");
   return expense;
 }
 
@@ -26,7 +27,7 @@ export const expensesRouter = router({
     .input(z.object({ groupId: z.string(), amountCents: amountCentsSchema }))
     .query(({ input }) => {
       const group = db.groups.get(input.groupId);
-      if (!group) throw new Error(`Group ${input.groupId} not found`);
+      if (!group) throw notFound(`Group ${input.groupId} not found`);
       return computeEqualSplits(input.amountCents, group.memberIds);
     }),
 
@@ -34,9 +35,9 @@ export const expensesRouter = router({
     .input(z.object({ groupId: z.string(), amountCents: amountCentsSchema, paidByUserId: z.string() }))
     .query(({ input }) => {
       const group = db.groups.get(input.groupId);
-      if (!group) throw new Error(`Group ${input.groupId} not found`);
+      if (!group) throw notFound(`Group ${input.groupId} not found`);
       if (!group.memberIds.includes(input.paidByUserId)) {
-        throw new Error("Payer must be a member of the group");
+        throw badRequest("Payer must be a member of the group");
       }
 
       const net = new Map(computeNetBalances(input.groupId).map((b) => [b.userId, b.netCents]));

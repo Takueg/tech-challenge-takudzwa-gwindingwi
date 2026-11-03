@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import toast from "react-hot-toast";
 import { useTRPC } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,9 +40,6 @@ export function AddExpenseDialog({
         setDescription("");
         setAmount("");
         setPaidByUserId("");
-      },
-      onError: (error) => {
-        toast.error(error.message);
       },
     })
   );

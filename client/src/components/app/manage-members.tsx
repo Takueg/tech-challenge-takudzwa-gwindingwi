@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
-import toast from "react-hot-toast";
 import { useTRPC } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -34,9 +33,6 @@ export function ManageMembers({
   const removeMember = useMutation(
     trpc.groups.removeMember.mutationOptions({
       onSuccess: invalidate,
-      onError: (error) => {
-        toast.error(error.message);
-      },
     })
   );
 

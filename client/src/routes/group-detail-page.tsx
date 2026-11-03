@@ -38,9 +38,6 @@ export function GroupDetailPage() {
         invalidateExpenseData();
         navigate("/");
       },
-      onError: (error) => {
-        toast.error(error.message);
-      },
     })
   );
 
@@ -49,9 +46,6 @@ export function GroupDetailPage() {
       onSuccess: () => {
         invalidateExpenseData();
         navigate("/");
-      },
-      onError: (error) => {
-        toast.error(error.message);
       },
     })
   );
@@ -62,9 +56,6 @@ export function GroupDetailPage() {
         invalidateExpenseData();
         toast.success("Expense deleted");
       },
-      onError: () => {
-        toast.error("Couldn't delete expense");
-      },
     })
   );
 
@@ -73,9 +64,6 @@ export function GroupDetailPage() {
       onSuccess: () => {
         invalidateExpenseData();
         toast.success("Settlement undone");
-      },
-      onError: (error) => {
-        toast.error(error.message);
       },
     })
   );

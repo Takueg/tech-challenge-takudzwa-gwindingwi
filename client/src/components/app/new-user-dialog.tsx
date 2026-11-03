@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import toast from "react-hot-toast";
 import { useTRPC } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,9 +31,6 @@ export function NewUserDialog() {
         setEmail("");
         setUsername("");
         setPassword("");
-      },
-      onError: (error) => {
-        toast.error(error.message);
       },
     })
   );
