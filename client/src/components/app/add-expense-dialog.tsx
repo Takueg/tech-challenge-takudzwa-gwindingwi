@@ -4,7 +4,8 @@ import { DialogActions, ErrorBanner, FieldError, FormSummary, TextField } from "
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { useCurrentUser } from "@/context/current-user";
+import { useCurrentUserId } from "@/context/current-user";
+import { useMyGroups } from "@/hooks/use-data";
 import { errorMessage, isRejection } from "@/lib/error-message";
 import { formatCents } from "@/lib/format";
 import { notify } from "@/lib/notify";
@@ -41,8 +42,8 @@ export function AddExpenseDialog({
   const trpc = useTRPC();
   const invalidate = useInvalidateExpenseData();
   const undo = useUndo();
-  const { currentUserId } = useCurrentUser();
-  const { data } = useQuery(trpc.groups.list.queryOptions({ userId: currentUserId ?? "" }));
+  const currentUserId = useCurrentUserId();
+  const { data } = useMyGroups();
   const myGroups = data ?? [];
 
   const [values, setValues] = useState<Values>({
@@ -92,7 +93,7 @@ export function AddExpenseDialog({
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (create.isPending || !currentUserId) return;
+    if (create.isPending) return;
     const found = validate(values);
     setErrors(found);
     setSummary(errorSummary(found, "add this expense"));

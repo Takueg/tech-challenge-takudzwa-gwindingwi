@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SegmentedControl, Tabs, TabsContent } from "@/components/ui/tabs";
-import { useCurrentUser } from "@/context/current-user";
+import { useCurrentUserId } from "@/context/current-user";
 import { spendersFromExpenses } from "@/lib/charts";
 import { slugify } from "@/lib/expense-table";
 import { formatCents, formatTimestamp } from "@/lib/format";
@@ -97,7 +97,7 @@ function BalancesTab({
   onRecord: (transfer: Transfer) => void;
   onDeletePayment: (settlement: Detail["settlements"][number]) => void;
 }) {
-  const { currentUserId } = useCurrentUser();
+  const currentUserId = useCurrentUserId();
   const isFormer = (userId: string) => data.formerMembers.some((member) => member.id === userId);
   const display = (userId: string) => (userId === currentUserId ? "You" : nameOf(userId));
 
@@ -313,7 +313,7 @@ function MembersTab({ data, readOnly }: { data: Detail; readOnly: boolean }) {
   const trpc = useTRPC();
   const invalidate = useInvalidateExpenseData();
   const undo = useUndo();
-  const { currentUserId } = useCurrentUser();
+  const currentUserId = useCurrentUserId();
   const { group, members, balances } = data;
   const netOf = (userId: string) => balances.find((balance) => balance.userId === userId)?.netCents ?? 0;
 
@@ -380,9 +380,9 @@ function GroupDetail({ groupId }: { groupId: string }) {
   const trpc = useTRPC();
   const invalidate = useInvalidateExpenseData();
   const undo = useUndo();
-  const { currentUserId } = useCurrentUser();
+  const currentUserId = useCurrentUserId();
   const { newExpenseId, markNewExpense } = useAppDialogs();
-  const detail = useQuery(trpc.groups.detail.queryOptions({ groupId, userId: currentUserId ?? "" }));
+  const detail = useQuery(trpc.groups.detail.queryOptions({ groupId, userId: currentUserId }));
   const [tab, setTab] = useState(TABS[0]);
   const [formOpen, setFormOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
@@ -401,7 +401,7 @@ function GroupDetail({ groupId }: { groupId: string }) {
         notify.success({
           title: "Expense Deleted",
           body: `“${expense?.description}” was removed and balances updated.`,
-          onUndo: () => undo(() => trpcClient.expenses.restore.mutate({ expenseId, userId: currentUserId ?? "" })),
+          onUndo: () => undo(() => trpcClient.expenses.restore.mutate({ expenseId, userId: currentUserId })),
         });
       },
     })
@@ -487,7 +487,7 @@ function GroupDetail({ groupId }: { groupId: string }) {
       body: `This removes ${formatCents(expense.amountCents)} from ${groupName} and updates everyone’s balances. You can undo right after.`,
       confirmLabel: "Yes, Delete",
       cancelLabel: "Keep It",
-      onConfirm: () => deleteExpense.mutate({ expenseId, userId: currentUserId ?? "" }),
+      onConfirm: () => deleteExpense.mutate({ expenseId, userId: currentUserId }),
     });
   };
   const askRecord = (transfer: Transfer) =>

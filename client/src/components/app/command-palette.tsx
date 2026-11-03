@@ -1,12 +1,11 @@
 import { useMemo, useState, type KeyboardEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogCard, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/icon";
 import { useCurrentUser } from "@/context/current-user";
+import { useMyExpenses, useMyGroups } from "@/hooks/use-data";
 import { searchExpenses } from "@/lib/expense-table";
 import { formatCents } from "@/lib/format";
-import { useTRPC } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 
 type Item = { id: string; label: string; icon: string; hint: string; action?: boolean; run: () => void };
@@ -23,12 +22,10 @@ export function CommandPalette({
   onSettleUp: () => void;
   onNewGroup: () => void;
 }) {
-  const trpc = useTRPC();
   const navigate = useNavigate();
-  const { currentUserId, logout } = useCurrentUser();
-  const userInput = { userId: currentUserId ?? "" };
-  const { data: groups } = useQuery(trpc.groups.list.queryOptions(userInput));
-  const { data: expenses } = useQuery(trpc.expenses.list.queryOptions(userInput));
+  const { logout } = useCurrentUser();
+  const { data: groups } = useMyGroups();
+  const { data: expenses } = useMyExpenses();
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
 

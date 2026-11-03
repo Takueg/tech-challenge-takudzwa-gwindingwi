@@ -1,13 +1,11 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { DropdownMenu } from "radix-ui";
 import { Link, NavLink } from "react-router-dom";
 import { useAppDialogs } from "@/components/app/app-dialogs";
 import { LogoMark } from "@/components/app/logo";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCurrentUser } from "@/context/current-user";
-import { useTRPC } from "@/lib/trpc";
+import { useMyBalances, useMyGroups } from "@/hooks/use-data";
 import { cn } from "@/lib/utils";
 
 type SortMode = "recent" | "name" | "balance";
@@ -32,15 +30,10 @@ function RoundIcon({ name }: { name: string }) {
 }
 
 export function SideNav({ onNavigate, className }: { onNavigate?: () => void; className?: string }) {
-  const trpc = useTRPC();
-  const { currentUserId } = useCurrentUser();
   const { openNewGroup } = useAppDialogs();
   const [sort, setSort] = useState<SortMode>("recent");
-  const groups = useQuery(trpc.groups.list.queryOptions({ userId: currentUserId ?? "" }));
-  const balances = useQuery({
-    ...trpc.stats.myBalances.queryOptions({ userId: currentUserId ?? "" }),
-    enabled: Boolean(currentUserId),
-  });
+  const groups = useMyGroups();
+  const balances = useMyBalances();
 
   const netOf = (groupId: string) =>
     Math.abs(balances.data?.perGroup.find((g) => g.groupId === groupId)?.netCents ?? 0);

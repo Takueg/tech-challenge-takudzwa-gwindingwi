@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ErrorBanner, FieldError, TextField } from "@/components/app/form-parts";
 import { HeaderActions, PageLayout } from "@/components/app/page-layout";
 import { Panel } from "@/components/app/panel";
@@ -12,7 +12,8 @@ import { Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SegmentedControl, Tabs } from "@/components/ui/tabs";
-import { useCurrentUser, useCurrentUserRecord } from "@/context/current-user";
+import { useCurrentUser, useCurrentUserId, useCurrentUserRecord } from "@/context/current-user";
+import { useMyGroups } from "@/hooks/use-data";
 import { errorMessage, httpStatusOf } from "@/lib/error-message";
 import { notify } from "@/lib/notify";
 import { setTheme, storedTheme, type Theme } from "@/lib/theme";
@@ -347,7 +348,8 @@ function AppearancePanel() {
 }
 
 function DemoToolsPanel({ users }: { users: User[] }) {
-  const { currentUserId, setCurrentUserId } = useCurrentUser();
+  const currentUserId = useCurrentUserId();
+  const { setCurrentUserId } = useCurrentUser();
   return (
     <Panel title="Demo Tools">
       <div className="flex flex-col gap-2">
@@ -356,7 +358,7 @@ function DemoToolsPanel({ users }: { users: User[] }) {
           inPanel
           aria-labelledby="dm-viewing"
           options={users.map((user) => ({ value: user.id, label: user.name }))}
-          value={currentUserId ?? ""}
+          value={currentUserId}
           onValueChange={(userId) => {
             setCurrentUserId(userId);
             const name = users.find((user) => user.id === userId)?.name;
@@ -370,10 +372,8 @@ function DemoToolsPanel({ users }: { users: User[] }) {
 }
 
 export function SettingsPage() {
-  const trpc = useTRPC();
-  const { currentUserId } = useCurrentUser();
   const { user, users, isLoading, isError, refetch } = useCurrentUserRecord();
-  const groups = useQuery(trpc.groups.list.queryOptions({ userId: currentUserId ?? "" }));
+  const groups = useMyGroups();
   const [editing, setEditing] = useState(false);
   const groupCount = groups.data?.length ?? 0;
 

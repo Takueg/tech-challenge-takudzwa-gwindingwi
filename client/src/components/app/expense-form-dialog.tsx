@@ -5,7 +5,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { useCurrentUser } from "@/context/current-user";
+import { useCurrentUserId } from "@/context/current-user";
 import { errorMessage, isRejection } from "@/lib/error-message";
 import { centsToInput, formatCents } from "@/lib/format";
 import { notify } from "@/lib/notify";
@@ -70,13 +70,13 @@ export function ExpenseFormDialog({
   const trpc = useTRPC();
   const invalidate = useInvalidateExpenseData();
   const undo = useUndo();
-  const { currentUserId } = useCurrentUser();
+  const currentUserId = useCurrentUserId();
   const editing = Boolean(expense);
 
   const [values, setValues] = useState<Values>({
     description: expense?.description ?? "",
     amount: expense ? centsToInput(expense.amountCents) : "",
-    payerId: expense?.paidByUserId ?? (members.some((m) => m.id === currentUserId) ? (currentUserId as string) : ""),
+    payerId: expense?.paidByUserId ?? (members.some((m) => m.id === currentUserId) ? currentUserId : ""),
   });
   const [errors, setErrors] = useState<Errors>({});
   const [summary, setSummary] = useState("");

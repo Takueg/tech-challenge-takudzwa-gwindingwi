@@ -2,7 +2,7 @@ import { HalfPieChart } from "@/components/app/half-pie-chart";
 import { Panel } from "@/components/app/panel";
 import { ErrorState } from "@/components/app/states";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCurrentUser } from "@/context/current-user";
+import { useCurrentUserId } from "@/context/current-user";
 import { barPercent, toPieSlices, type SpenderRow } from "@/lib/charts";
 import { formatCents } from "@/lib/format";
 
@@ -47,7 +47,7 @@ function TopSpenders({
   onRetry,
   skeletonRows,
 }: Query & { spenders: SpenderRow[]; label: string; skeletonRows: number }) {
-  const { currentUserId } = useCurrentUser();
+  const currentUserId = useCurrentUserId();
   const top = spenders.slice(0, 5);
   const topCents = top[0]?.totalCents ?? 0;
   return (

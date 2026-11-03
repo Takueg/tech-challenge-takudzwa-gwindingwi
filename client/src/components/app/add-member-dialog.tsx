@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { DialogActions, ErrorBanner } from "@/components/app/form-parts";
 import { MemberPicker } from "@/components/app/member-picker";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useUsers } from "@/hooks/use-data";
 import { errorMessage, isRejection } from "@/lib/error-message";
 import { notify } from "@/lib/notify";
 import { trpcClient, useTRPC } from "@/lib/trpc";
@@ -27,7 +28,7 @@ export function AddMemberDialog({
   const trpc = useTRPC();
   const invalidate = useInvalidateExpenseData();
   const undo = useUndo();
-  const { data: users } = useQuery(trpc.users.list.queryOptions());
+  const { data: users } = useUsers();
   const [userIds, setUserIds] = useState<string[]>([]);
   const [listOpen, setListOpen] = useState(true);
   const [error, setError] = useState("");

@@ -44,6 +44,13 @@ export function useCurrentUser() {
   return ctx;
 }
 
+/** For screens behind RequireAuth, where there's always a user. Throws rather than querying with an empty id. */
+export function useCurrentUserId(): string {
+  const { currentUserId } = useCurrentUser();
+  if (!currentUserId) throw new Error("useCurrentUserId must be used behind RequireAuth");
+  return currentUserId;
+}
+
 /** The logged-in user's record, plus the full user list it came from. */
 export function useCurrentUserRecord() {
   const trpc = useTRPC();

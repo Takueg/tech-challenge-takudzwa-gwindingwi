@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCurrentUser } from "@/context/current-user";
+import { useCurrentUserId } from "@/context/current-user";
 import {
   ALL_CATEGORIES,
   ALL_GROUPS,
@@ -187,7 +187,7 @@ export function ExpensesTable({
   exportFileName: string;
   newId?: string | null;
 }) {
-  const { currentUserId } = useCurrentUser();
+  const currentUserId = useCurrentUserId();
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState(ALL_GROUPS);
   const [category, setCategory] = useState(ALL_CATEGORIES);

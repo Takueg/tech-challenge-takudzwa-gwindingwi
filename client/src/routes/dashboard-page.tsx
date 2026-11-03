@@ -11,7 +11,8 @@ import { SummaryCard, SummaryCardSkeleton } from "@/components/app/summary-card"
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCurrentUser } from "@/context/current-user";
+import { useCurrentUserId } from "@/context/current-user";
+import { useMyBalances, useMyDebts, useMyExpenses, useMyGroups, useUsers } from "@/hooks/use-data";
 import { formatCents } from "@/lib/format";
 import { settleHint } from "@/lib/split-preview";
 import { useTRPC, type RouterOutputs } from "@/lib/trpc";
@@ -147,17 +148,17 @@ function GroupCard({
 
 export function DashboardPage() {
   const trpc = useTRPC();
-  const { currentUserId } = useCurrentUser();
+  const currentUserId = useCurrentUserId();
   const { openAddExpense, openSettleUp, openNewGroup, newExpenseId } = useAppDialogs();
-  const userInput = { userId: currentUserId ?? "" };
+  const userInput = { userId: currentUserId };
 
   const overview = useQuery(trpc.stats.overview.queryOptions(userInput));
-  const balances = useQuery(trpc.stats.myBalances.queryOptions(userInput));
-  const debts = useQuery(trpc.settlements.suggestedForUser.queryOptions(userInput));
-  const expenses = useQuery(trpc.expenses.list.queryOptions(userInput));
+  const balances = useMyBalances();
+  const debts = useMyDebts();
+  const expenses = useMyExpenses();
   const leaderboard = useQuery(trpc.stats.leaderboard.queryOptions(userInput));
-  const groups = useQuery(trpc.groups.list.queryOptions(userInput));
-  const users = useQuery(trpc.users.list.queryOptions());
+  const groups = useMyGroups();
+  const users = useUsers();
 
   const headerLoading = overview.isLoading || balances.isLoading;
   const busy = headerLoading || debts.isLoading || expenses.isLoading || groups.isLoading;
