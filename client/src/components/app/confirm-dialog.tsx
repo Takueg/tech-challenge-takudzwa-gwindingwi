@@ -1,56 +1,48 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import type { ReactNode } from "react";
+import { Dialog, DialogCard, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
+/** The system Dialog, centred. Only for destructive or irreversible actions. */
 export function ConfirmDialog({
   open,
   onOpenChange,
   title,
-  description,
-  confirmLabel = "Confirm",
+  question,
+  body,
+  confirmLabel,
+  cancelLabel = "Cancel",
   onConfirm,
-  destructive,
-  hideCancel,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  description?: string;
-  confirmLabel?: string;
-  onConfirm?: () => void;
-  destructive?: boolean;
-  hideCancel?: boolean;
+  question: string;
+  body?: ReactNode;
+  confirmLabel: string;
+  cancelLabel?: string;
+  onConfirm: () => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          {description && <DialogDescription>{description}</DialogDescription>}
-        </DialogHeader>
-        <DialogFooter>
-          {!hideCancel && (
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-          )}
+      <DialogCard className="swl-dialog">
+        <DialogTitle className="swl-dialog__title">{title}</DialogTitle>
+        <DialogDescription className="swl-dialog__q">{question}</DialogDescription>
+        {body && <div className="swl-dialog__body">{body}</div>}
+        <div className="swl-dialog__actions">
           <Button
-            variant={destructive ? "destructive" : "default"}
+            width={218}
             onClick={() => {
-              onConfirm?.();
+              onConfirm();
               onOpenChange(false);
             }}
           >
             {confirmLabel}
           </Button>
-        </DialogFooter>
-      </DialogContent>
+          <Button variant="secondary" width={218} onClick={() => onOpenChange(false)}>
+            {cancelLabel}
+          </Button>
+        </div>
+      </DialogCard>
     </Dialog>
   );
 }
