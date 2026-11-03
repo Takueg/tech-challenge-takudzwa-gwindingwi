@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { errorMessage } from "./error-message";
+import { errorMessage, isRejection } from "./error-message";
 
 function apiError(message: string, httpStatus: number) {
   return Object.assign(new Error(message), { data: { httpStatus } });
@@ -22,5 +22,16 @@ describe("errorMessage", () => {
 
   it("handles something that isn't an error at all", () => {
     expect(errorMessage(undefined)).toBe("Something went wrong. Please try again.");
+  });
+});
+
+describe("isRejection", () => {
+  it("is true for a 4xx", () => {
+    expect(isRejection(apiError("No", 409))).toBe(true);
+  });
+
+  it("is false for a crash or an outage", () => {
+    expect(isRejection(apiError("Boom", 500))).toBe(false);
+    expect(isRejection(new TypeError("Failed to fetch"))).toBe(false);
   });
 });
