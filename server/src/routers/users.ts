@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../trpc.js";
 import { db, nextId, toPublicUser, type User } from "../lib/db.js";
+import { nonBlankStringSchema } from "../lib/schemas.js";
 import { conflict, notFound } from "../lib/errors.js";
 
 export const usersRouter = router({
@@ -11,9 +12,9 @@ export const usersRouter = router({
   create: publicProcedure
     .input(
       z.object({
-        name: z.string().min(1),
+        name: nonBlankStringSchema,
         email: z.string().email(),
-        username: z.string().min(1),
+        username: nonBlankStringSchema,
         password: z.string().min(1),
       })
     )
@@ -37,7 +38,7 @@ export const usersRouter = router({
     .input(
       z.object({
         userId: z.string(),
-        name: z.string().min(1),
+        name: nonBlankStringSchema,
         email: z.string().email(),
         bio: z.string().optional(),
       })

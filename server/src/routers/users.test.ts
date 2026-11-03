@@ -46,8 +46,10 @@ describe("users.create", () => {
 
   it.each([
     ["an empty name", { name: "" }],
+    ["a whitespace-only name", { name: "   " }],
     ["an invalid email", { email: "not-an-email" }],
     ["an empty username", { username: "" }],
+    ["a whitespace-only username", { username: "   " }],
     ["an empty password", { password: "" }],
   ])("rejects %s", async (_label, override) => {
     await expect(testCaller().users.create({ ...validInput, ...override })).rejects.toMatchObject({
@@ -94,6 +96,7 @@ describe("users.update", () => {
 
   it.each([
     ["an empty name", { name: "", email: "a@test.com" }],
+    ["a whitespace-only name", { name: "   ", email: "a@test.com" }],
     ["an invalid email", { name: "A", email: "nope" }],
   ])("rejects %s", async (_label, input) => {
     await expect(testCaller().users.update({ userId: alice.id, ...input })).rejects.toMatchObject({
