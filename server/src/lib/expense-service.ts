@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { db, nextId, type Expense, type ExpenseSplit } from "./db.js";
+import { db, keepDeleted, nextId, type Expense, type ExpenseSplit } from "./db.js";
 import { detectExpenseCategory } from "./category.js";
 import { badRequest, forbidden, notFound } from "./errors.js";
 import { listGroupsForUser } from "./group-service.js";
 import { requireGroup, requireGroupForMember, requireNotArchived, userName } from "./guards.js";
-import { amountCentsSchema, nonBlankStringSchema } from "./schemas.js";
+import { amountCentsSchema, expenseDescriptionSchema } from "./schemas.js";
 import { splitStrategyRegistry } from "./split-strategies/index.js";
 
 const EXPENSE_LIST_LIMIT = 1000;
@@ -12,7 +12,7 @@ const ARCHIVED_MESSAGE = "Can't change an expense in an archived group";
 
 export const createExpenseInput = z.object({
   groupId: z.string(),
-  description: nonBlankStringSchema,
+  description: expenseDescriptionSchema,
   amountCents: amountCentsSchema,
   paidByUserId: z.string(),
 });
@@ -127,7 +127,7 @@ export async function updateExpense(input: {
 export function deleteExpense(expenseId: string, userId: string): void {
   const expense = requireEditableExpense(expenseId, userId);
   db.expenses.delete(expense.id);
-  db.deletedExpenses.set(expense.id, expense);
+  keepDeleted(db.deletedExpenses, expense);
 }
 
 /** Undoes a delete, with the same people and amounts it had. */

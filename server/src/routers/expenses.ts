@@ -10,7 +10,7 @@ import {
   restoreExpense,
   updateExpense,
 } from "../lib/expense-service.js";
-import { amountCentsSchema, nonBlankStringSchema } from "../lib/schemas.js";
+import { amountCentsSchema, expenseDescriptionSchema, nonBlankStringSchema } from "../lib/schemas.js";
 
 const expenseActionInput = z.object({ expenseId: z.string(), userId: z.string() });
 
@@ -32,7 +32,7 @@ export const expensesRouter = router({
   update: publicProcedure
     .input(
       expenseActionInput.extend({
-        description: nonBlankStringSchema,
+        description: expenseDescriptionSchema,
         amountCents: amountCentsSchema,
         paidByUserId: z.string().optional(),
       })

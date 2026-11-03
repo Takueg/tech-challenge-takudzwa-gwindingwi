@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../trpc.js";
-import { emailSchema, nonBlankStringSchema } from "../lib/schemas.js";
+import { avatarUrlSchema, bioSchema, emailSchema, userNameSchema } from "../lib/schemas.js";
 import { listUsers, updateAvatar, updateUser } from "../lib/user-service.js";
 
 export const usersRouter = router({
@@ -10,14 +10,14 @@ export const usersRouter = router({
     .input(
       z.object({
         userId: z.string(),
-        name: nonBlankStringSchema,
+        name: userNameSchema,
         email: emailSchema,
-        bio: z.string().optional(),
+        bio: bioSchema.optional(),
       })
     )
     .mutation(({ input }) => updateUser(input)),
 
   updateAvatar: publicProcedure
-    .input(z.object({ userId: z.string(), avatarUrl: z.string() }))
+    .input(z.object({ userId: z.string(), avatarUrl: avatarUrlSchema }))
     .mutation(({ input }) => updateAvatar(input.userId, input.avatarUrl)),
 });

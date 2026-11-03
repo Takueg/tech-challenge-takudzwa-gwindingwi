@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { db, nextId, type Group, type User } from "../lib/db.js";
+import { db, MAX_DELETED_KEPT, nextId, type Group, type User } from "../lib/db.js";
 import { testCaller } from "../test-utils/caller.js";
 import { addExpense, addSettlement, makeGroup, makeUser, netOf, settleUp, sortedByUser, sumNet } from "../test-utils/fixtures.js";
 
@@ -641,6 +641,23 @@ describe("expenses.list is scoped to the user's groups", () => {
     const outsiderGroup = makeGroup("Not Alice's", [bob, carol]);
 
     await expect(testCaller().expenses.list({ userId: alice.id, groupId: outsiderGroup.id })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+});
+
+describe("deleted records", () => {
+  it("only keeps the most recent ones, so memory can't grow forever", async () => {
+    const caller = testCaller();
+    const first = addExpense(group, alice, 100);
+    await caller.expenses.delete({ expenseId: first.id, userId: alice.id });
+    for (let i = 0; i < MAX_DELETED_KEPT; i += 1) {
+      const expense = addExpense(group, alice, 100);
+      await caller.expenses.delete({ expenseId: expense.id, userId: alice.id });
+    }
+
+    expect(db.deletedExpenses.size).toBe(MAX_DELETED_KEPT);
+    await expect(caller.expenses.restore({ expenseId: first.id, userId: alice.id })).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
   });

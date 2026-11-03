@@ -11,7 +11,7 @@ import {
   removeMembers,
   unarchiveGroup,
 } from "../lib/group-service.js";
-import { nonBlankStringSchema } from "../lib/schemas.js";
+import { groupNameSchema } from "../lib/schemas.js";
 
 const MAX_MEMBERS_PER_REQUEST = 200;
 const userInput = z.object({ userId: z.string() });
@@ -27,7 +27,7 @@ export const groupsRouter = router({
     .query(({ input }) => getGroupDetail(input.groupId, input.userId)),
 
   create: publicProcedure
-    .input(z.object({ name: nonBlankStringSchema, memberIds: z.array(z.string()).min(1) }))
+    .input(z.object({ name: groupNameSchema, memberIds: z.array(z.string()).min(1) }))
     .mutation(({ input }) => createGroup(input)),
 
   addMembers: publicProcedure.input(membersInput).mutation(({ input }) => addMembers(input.groupId, input.userIds)),

@@ -1,5 +1,5 @@
 import { computeNetBalances, simplifyDebts } from "./balances.js";
-import { db, nextId, type Settlement } from "./db.js";
+import { db, keepDeleted, nextId, type Settlement } from "./db.js";
 import { badRequest, conflict, notFound } from "./errors.js";
 import { requireGroup, requireNotArchived, userName } from "./guards.js";
 
@@ -68,7 +68,7 @@ export function deleteSettlement(settlementId: string): void {
   if (!settlement) throw notFound(`Settlement ${settlementId} not found`);
   requireNotArchived(requireGroup(settlement.groupId), UNDO_ARCHIVED_MESSAGE);
   db.settlements.delete(settlementId);
-  db.deletedSettlements.set(settlement.id, settlement);
+  keepDeleted(db.deletedSettlements, settlement);
 }
 
 /** Undoes a delete. Balances may have moved since, so the debt is checked again. */
