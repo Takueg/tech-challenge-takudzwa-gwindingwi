@@ -46,6 +46,10 @@ export const usersRouter = router({
     .mutation(({ input }) => {
       const user = db.users.get(input.userId);
       if (!user) throw notFound(`User ${input.userId} not found`);
+      const email = input.email.toLowerCase();
+      if (Array.from(db.users.values()).some((u) => u.id !== user.id && u.email.toLowerCase() === email)) {
+        throw conflict("That email is already used by another account");
+      }
       user.name = input.name;
       user.email = input.email;
       user.bio = input.bio;

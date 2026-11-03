@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db, type Group, type User } from "../lib/db.js";
 import { testCaller } from "../test-utils/caller.js";
-import { addExpense, makeGroup, makeUser, netOf, resetDb, settleUp, sumNet } from "../test-utils/fixtures.js";
+import { addExpense, addSettlement, makeGroup, makeUser, netOf, resetDb, settleUp, sumNet } from "../test-utils/fixtures.js";
 
 let alice: User, bob: User, carol: User;
 let group: Group;
@@ -229,5 +229,100 @@ describe("settlements.delete", () => {
 
     await expect(caller.settlements.delete({ settlementId: settlement.id })).rejects.toThrow(/archived/i);
     expect(db.settlements.has(settlement.id)).toBe(true);
+  });
+});
+
+describe("settlements.suggestedForUser", () => {
+  it("lists only the debts involving the user, across groups, with names", async () => {
+    const dave = makeUser("Dave");
+    const first = makeGroup("First", [alice, bob]);
+    const second = makeGroup("Second", [alice, dave]);
+    const unrelated = makeGroup("Unrelated", [bob, dave]);
+    addExpense(first, alice, 1000);
+    addExpense(second, dave, 3000);
+    addExpense(unrelated, bob, 500);
+
+    expect(await testCaller().settlements.suggestedForUser({ userId: alice.id })).toEqual([
+      {
+        groupId: first.id,
+        groupName: "First",
+        fromUserId: bob.id,
+        fromName: "Bob",
+        toUserId: alice.id,
+        toName: "Alice",
+        amountCents: 500,
+      },
+      {
+        groupId: second.id,
+        groupName: "Second",
+        fromUserId: alice.id,
+        fromName: "Alice",
+        toUserId: dave.id,
+        toName: "Dave",
+        amountCents: 1500,
+      },
+    ]);
+  });
+
+  it("leaves out archived groups", async () => {
+    const caller = testCaller();
+    const settled = makeGroup("Settled", [alice, bob]);
+    await caller.groups.archive({ groupId: settled.id });
+
+    const rows = await caller.settlements.suggestedForUser({ userId: alice.id });
+    expect(rows.filter((r) => r.groupId === settled.id)).toEqual([]);
+  });
+});
+
+describe("settlements.restore", () => {
+  it("puts a deleted settlement back on the balances", async () => {
+    const caller = testCaller();
+    const restoring = makeGroup("Restoring", [alice, bob]);
+    addExpense(restoring, alice, 1000);
+    const settlement = addSettlement(restoring, bob, alice, 500);
+    await caller.settlements.delete({ settlementId: settlement.id });
+
+    await caller.settlements.restore({ settlementId: settlement.id });
+
+    const detail = await caller.groups.detail({ groupId: restoring.id });
+    expect(detail.settlements.map((s) => s.id)).toEqual([settlement.id]);
+    expect(netOf(detail.balances, alice)).toBe(0);
+  });
+
+  it("can't restore something that was never deleted", async () => {
+    const restoring = makeGroup("Restoring", [alice, bob]);
+    addExpense(restoring, alice, 1000);
+    const settlement = addSettlement(restoring, bob, alice, 100);
+
+    await expect(testCaller().settlements.restore({ settlementId: settlement.id })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("refuses when the debt it paid no longer exists", async () => {
+    const caller = testCaller();
+    const restoring = makeGroup("Restoring", [alice, bob]);
+    const expense = addExpense(restoring, alice, 1000);
+    const settlement = addSettlement(restoring, bob, alice, 500);
+    await caller.settlements.delete({ settlementId: settlement.id });
+    await caller.expenses.delete({ expenseId: expense.id });
+
+    await expect(caller.settlements.restore({ settlementId: settlement.id })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+  });
+
+  it("refuses in an archived group", async () => {
+    const caller = testCaller();
+    const restoring = makeGroup("Restoring", [alice, bob]);
+    addExpense(restoring, alice, 1000);
+    const settlement = addSettlement(restoring, bob, alice, 500);
+    await caller.settlements.delete({ settlementId: settlement.id });
+    addSettlement(restoring, bob, alice, 500);
+    await caller.groups.archive({ groupId: restoring.id });
+
+    await expect(caller.settlements.restore({ settlementId: settlement.id })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
   });
 });

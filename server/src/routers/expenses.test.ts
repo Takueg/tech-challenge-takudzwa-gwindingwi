@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db, nextId, type Group, type User } from "../lib/db.js";
 import { testCaller } from "../test-utils/caller.js";
-import { addExpense, addSettlement, makeUser, netOf, settleUp, sortedByUser, sumNet } from "../test-utils/fixtures.js";
+import { addExpense, addSettlement, makeGroup, makeUser, netOf, settleUp, sortedByUser, sumNet } from "../test-utils/fixtures.js";
 
 let group: Group;
 let alice: User, bob: User, carol: User;
@@ -537,5 +537,152 @@ describe("expenses in an archived group", () => {
 
     const detail = await caller.groups.detail({ groupId: group.id });
     expect(detail.expenses.map((e) => e.archivedAt)).toEqual([undefined]);
+  });
+});
+
+describe("expenses.list", () => {
+  it("lists across groups, newest first, with the group name", async () => {
+    const flat = makeGroup("Flat", [alice, bob]);
+    const older = addExpense(group, alice, 1000, { createdAt: "2026-01-01T10:00:00.000Z" });
+    const newer = addExpense(flat, bob, 2000, { createdAt: "2026-02-01T10:00:00.000Z" });
+
+    const rows = await testCaller().expenses.list({});
+
+    expect(rows.map((e) => [e.id, e.groupName])).toEqual([
+      [newer.id, "Flat"],
+      [older.id, group.name],
+    ]);
+  });
+
+  it("filters to one group", async () => {
+    const flat = makeGroup("Flat", [alice, bob]);
+    addExpense(flat, bob, 2000);
+    const mine = addExpense(group, alice, 1000);
+
+    const rows = await testCaller().expenses.list({ groupId: group.id });
+    expect(rows.map((e) => e.id)).toEqual([mine.id]);
+  });
+
+  it("leaves out archived groups unless one is asked for", async () => {
+    const caller = testCaller();
+    const flat = makeGroup("Flat", [alice, bob]);
+    const archived = addExpense(flat, bob, 2000);
+    settleUp(flat);
+    await caller.groups.archive({ groupId: flat.id });
+
+    expect(await caller.expenses.list({})).toEqual([]);
+    expect((await caller.expenses.list({ groupId: flat.id })).map((e) => e.id)).toEqual([archived.id]);
+  });
+
+  it("rejects a group that doesn't exist", async () => {
+    await expect(testCaller().expenses.list({ groupId: "missing" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("caps how many rows it returns", async () => {
+    for (let i = 0; i < 1001; i += 1) addExpense(group, alice, 100);
+
+    expect(await testCaller().expenses.list({})).toHaveLength(1000);
+  });
+});
+
+describe("expenses.detectCategory", () => {
+  it("returns the category an expense with this description would get", async () => {
+    expect(await testCaller().expenses.detectCategory({ description: "Team dinner" })).toBe("Food");
+    expect(await testCaller().expenses.detectCategory({ description: "Rent - May" })).toBe("Rent");
+  });
+
+  it("rejects a blank description", async () => {
+    await expect(testCaller().expenses.detectCategory({ description: "  " })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+  });
+});
+
+describe("expenses.update payer", () => {
+  it("moves the expense to the new payer and shifts balances", async () => {
+    const caller = testCaller();
+    const expense = addExpense(group, alice, 3000);
+
+    const updated = await caller.expenses.update({
+      expenseId: expense.id,
+      description: expense.description,
+      amountCents: 3000,
+      paidByUserId: bob.id,
+    });
+
+    expect(updated).toMatchObject({ paidByUserId: bob.id, paidByUserName: "Bob" });
+    const { balances } = await caller.groups.detail({ groupId: group.id });
+    expect(balances.find((b) => b.userId === bob.id)?.netCents).toBeGreaterThan(0);
+    expect(balances.find((b) => b.userId === alice.id)?.netCents).toBeLessThan(0);
+  });
+
+  it("keeps the payer when none is passed", async () => {
+    const expense = addExpense(group, alice, 3000);
+
+    const updated = await testCaller().expenses.update({
+      expenseId: expense.id,
+      description: "Renamed",
+      amountCents: 3000,
+    });
+
+    expect(updated.paidByUserId).toBe(alice.id);
+  });
+
+  it("rejects a payer who isn't in the group", async () => {
+    const outsider = makeUser("Outsider");
+    const expense = addExpense(group, alice, 3000);
+
+    await expect(
+      testCaller().expenses.update({
+        expenseId: expense.id,
+        description: expense.description,
+        amountCents: 3000,
+        paidByUserId: outsider.id,
+      })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(db.expenses.get(expense.id)?.paidByUserId).toBe(alice.id);
+  });
+});
+
+describe("expenses.restore", () => {
+  it("brings back a deleted expense and its effect on balances", async () => {
+    const caller = testCaller();
+    const expense = addExpense(group, alice, 3000);
+    const before = await caller.groups.detail({ groupId: group.id });
+    await caller.expenses.delete({ expenseId: expense.id });
+
+    await caller.expenses.restore({ expenseId: expense.id });
+
+    const after = await caller.groups.detail({ groupId: group.id });
+    expect(after.expenses.map((e) => e.id)).toEqual([expense.id]);
+    expect(after.balances).toEqual(before.balances);
+  });
+
+  it("can't restore twice", async () => {
+    const caller = testCaller();
+    const expense = addExpense(group, alice, 3000);
+    await caller.expenses.delete({ expenseId: expense.id });
+    await caller.expenses.restore({ expenseId: expense.id });
+
+    await expect(caller.expenses.restore({ expenseId: expense.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("refuses in an archived group", async () => {
+    const caller = testCaller();
+    const expense = addExpense(group, alice, 3000);
+    await caller.expenses.delete({ expenseId: expense.id });
+    settleUp(group);
+    await caller.groups.archive({ groupId: group.id });
+
+    await expect(caller.expenses.restore({ expenseId: expense.id })).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("is gone once its group is deleted", async () => {
+    const caller = testCaller();
+    const expense = addExpense(group, alice, 3000);
+    await caller.expenses.delete({ expenseId: expense.id });
+    await caller.groups.delete({ groupId: group.id });
+
+    await expect(caller.expenses.restore({ expenseId: expense.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });

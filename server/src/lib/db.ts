@@ -62,6 +62,9 @@ export const db = {
   groups: new Map<string, Group>(),
   expenses: new Map<string, Expense>(),
   settlements: new Map<string, Settlement>(),
+  /** Deleted records, kept so a delete can be undone. Balances never read these. */
+  deletedExpenses: new Map<string, Expense>(),
+  deletedSettlements: new Map<string, Settlement>(),
 };
 
 let idCounter = 0;
@@ -151,13 +154,13 @@ function seed() {
   addSettlement(trip, carol, bob, 3000, new Date(2026, 6, 5, 9, 0));
 
   // Apartment 4B
-  addExpense(apartment, "Rent - July", 180000, alice, "Other", new Date(2026, 6, 1, 9, 0));
+  addExpense(apartment, "Rent - July", 180000, alice, "Rent", new Date(2026, 6, 1, 9, 0));
   addExpense(apartment, "Electricity bill", 8734, dave, "Other", new Date(2026, 6, 3, 18, 0));
   addExpense(apartment, "Groceries", 5623, emma, "Food", new Date(2026, 6, 5, 12, 0));
   addExpense(apartment, "Internet bill", 4999, alice, "Other", new Date(2026, 6, 6, 9, 0));
   addExpense(apartment, "Groceries", 3891, dave, "Food", new Date(2026, 6, 12, 17, 0));
   addExpense(apartment, "Cleaning supplies", 1567, emma, "Other", new Date(2026, 6, 14, 11, 0));
-  addExpense(apartment, "Rent - August", 180000, alice, "Other", new Date(2026, 7, 1, 9, 0));
+  addExpense(apartment, "Rent - August", 180000, alice, "Rent", new Date(2026, 7, 1, 9, 0));
   addExpense(apartment, "Groceries", 4712, emma, "Food", new Date(2026, 7, 3, 16, 0));
   addSettlement(apartment, dave, alice, 60000, new Date(2026, 6, 15, 20, 0));
 

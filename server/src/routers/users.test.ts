@@ -121,3 +121,22 @@ describe("users.updateAvatar", () => {
     await expect(testCaller().users.updateAvatar({ userId: "missing", avatarUrl: "x" })).rejects.toThrow(/not found/i);
   });
 });
+
+describe("users.update email conflicts", () => {
+  it("refuses an email another account uses, ignoring case, and changes nothing", async () => {
+    const first = makeUser("First");
+    const second = makeUser("Second");
+
+    await expect(
+      testCaller().users.update({ userId: first.id, name: "Renamed", email: second.email.toUpperCase() })
+    ).rejects.toMatchObject({ code: "CONFLICT", message: "That email is already used by another account" });
+    expect(db.users.get(first.id)?.name).toBe("First");
+  });
+
+  it("lets someone keep their own email", async () => {
+    const first = makeUser("First");
+
+    const updated = await testCaller().users.update({ userId: first.id, name: "Renamed", email: first.email });
+    expect(updated.name).toBe("Renamed");
+  });
+});

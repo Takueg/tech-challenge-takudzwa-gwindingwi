@@ -39,4 +39,10 @@ export function deleteGroup(groupId: string): void {
   for (const settlement of db.settlements.values()) {
     if (settlement.groupId === groupId) db.settlements.delete(settlement.id);
   }
+  for (const expense of db.deletedExpenses.values()) {
+    if (expense.groupId === groupId) db.deletedExpenses.delete(expense.id);
+  }
+  for (const settlement of db.deletedSettlements.values()) {
+    if (settlement.groupId === groupId) db.deletedSettlements.delete(settlement.id);
+  }
 }

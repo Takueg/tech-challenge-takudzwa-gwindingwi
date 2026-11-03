@@ -1,4 +1,5 @@
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  Rent: ["rent"],
   Food: ["dinner", "lunch", "breakfast", "groceries", "restaurant", "cafe"],
   Travel: ["flight", "train", "taxi", "uber", "cab", "gas", "gasoline", "fuel"],
   Lodging: ["hotel", "cabin", "airbnb", "rental", "hostel"],

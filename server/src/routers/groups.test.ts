@@ -534,3 +534,22 @@ describe("groups.detail", () => {
     ]);
   });
 });
+
+describe("groups.list lastActivityAt", () => {
+  it("falls back to when the group was created", async () => {
+    const quiet = makeGroup("Quiet", [alice, bob]);
+
+    const listed = (await testCaller().groups.list()).find((g) => g.id === quiet.id);
+    expect(listed?.lastActivityAt).toBe(quiet.createdAt);
+  });
+
+  it("is the latest expense or settlement", async () => {
+    const busy = makeGroup("Busy", [alice, bob]);
+    addExpense(busy, alice, 1000, { createdAt: "2030-01-01T10:00:00.000Z" });
+    addSettlement(busy, bob, alice, 100, "2030-02-01T10:00:00.000Z");
+    addExpense(busy, alice, 1000, { createdAt: "2030-01-15T10:00:00.000Z" });
+
+    const listed = (await testCaller().groups.list()).find((g) => g.id === busy.id);
+    expect(listed?.lastActivityAt).toBe("2030-02-01T10:00:00.000Z");
+  });
+});

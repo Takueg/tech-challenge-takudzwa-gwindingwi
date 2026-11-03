@@ -12,12 +12,19 @@ function listGroupsWithTotals(includeGroup: (group: Group) => boolean) {
     .map((group) => {
       let expenseCount = 0;
       let totalCents = 0;
+      let lastActivityAt = group.createdAt;
       for (const expense of db.expenses.values()) {
         if (expense.groupId !== group.id) continue;
         expenseCount += 1;
         totalCents += expense.amountCents;
+        if (expense.updatedAt > lastActivityAt) lastActivityAt = expense.updatedAt;
       }
-      return { ...group, expenseCount, totalCents };
+      for (const settlement of db.settlements.values()) {
+        if (settlement.groupId === group.id && settlement.createdAt > lastActivityAt) {
+          lastActivityAt = settlement.createdAt;
+        }
+      }
+      return { ...group, expenseCount, totalCents, lastActivityAt };
     });
 }
 

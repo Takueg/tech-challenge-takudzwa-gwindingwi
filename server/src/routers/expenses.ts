@@ -14,7 +14,26 @@ function requireEditableExpense(expenseId: string): Expense {
   return expense;
 }
 
+const EXPENSE_LIST_LIMIT = 1000;
+
 export const expensesRouter = router({
+  /** Newest first, with the group name for the shared table. Without a group, leaves out archived groups. */
+  list: publicProcedure.input(z.object({ groupId: z.string().optional() })).query(({ input }) => {
+    const { groupId } = input;
+    if (groupId && !db.groups.has(groupId)) throw notFound(`Group ${groupId} not found`);
+    const expenses = groupId
+      ? Array.from(db.expenses.values()).filter((e) => e.groupId === groupId)
+      : listActiveExpenses();
+    return expenses
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, EXPENSE_LIST_LIMIT)
+      .map((e) => ({ ...e, groupName: db.groups.get(e.groupId)?.name ?? "Unknown" }));
+  }),
+
+  detectCategory: publicProcedure
+    .input(z.object({ description: nonBlankStringSchema }))
+    .query(({ input }) => detectExpenseCategory(input.description)),
+
   search: publicProcedure.input(z.object({ query: z.string() })).query(({ input }) => {
     const needle = input.query.trim().toLowerCase();
     if (!needle) return [];
@@ -69,6 +88,7 @@ export const expensesRouter = router({
         expenseId: z.string(),
         description: nonBlankStringSchema,
         amountCents: amountCentsSchema,
+        paidByUserId: z.string().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -78,6 +98,14 @@ export const expensesRouter = router({
 
       // Looked up again because the expense may have been deleted or archived during detection.
       const expense = requireEditableExpense(input.expenseId);
+      if (input.paidByUserId && input.paidByUserId !== expense.paidByUserId) {
+        const onExpense = expense.splits.some((s) => s.userId === input.paidByUserId);
+        if (!onExpense && !db.groups.get(expense.groupId)?.memberIds.includes(input.paidByUserId)) {
+          throw badRequest("Payer must be a member of the group");
+        }
+        expense.paidByUserId = input.paidByUserId;
+        expense.paidByUserName = db.users.get(input.paidByUserId)?.name ?? "Unknown";
+      }
       if (input.amountCents !== expense.amountCents) {
         // Re-split across the people on this expense, who may differ from today's members.
         expense.splits = computeEqualSplits(
@@ -93,8 +121,21 @@ export const expensesRouter = router({
     }),
 
   delete: publicProcedure.input(z.object({ expenseId: z.string() })).mutation(({ input }) => {
-    requireEditableExpense(input.expenseId);
-    db.expenses.delete(input.expenseId);
+    const expense = requireEditableExpense(input.expenseId);
+    db.expenses.delete(expense.id);
+    db.deletedExpenses.set(expense.id, expense);
     return { ok: true };
+  }),
+
+  /** Undoes a delete, with the same people and amounts it had. */
+  restore: publicProcedure.input(z.object({ expenseId: z.string() })).mutation(({ input }) => {
+    const expense = db.deletedExpenses.get(input.expenseId);
+    if (!expense) throw notFound(`Expense ${input.expenseId} not found`);
+    const group = db.groups.get(expense.groupId);
+    if (!group) throw notFound(`Group ${expense.groupId} not found`);
+    if (group.archivedAt) throw conflict("Can't change an expense in an archived group");
+    db.deletedExpenses.delete(expense.id);
+    db.expenses.set(expense.id, expense);
+    return expense;
   }),
 });

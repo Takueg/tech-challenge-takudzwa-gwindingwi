@@ -16,7 +16,12 @@ beforeEach(() => {
 
 describe("stats.overview", () => {
   it("reports zero spending with no expenses", async () => {
-    expect(await testCaller().stats.overview()).toEqual({ groupCount: 2, expenseCount: 0, totalCents: 0 });
+    expect(await testCaller().stats.overview()).toEqual({
+      groupCount: 2,
+      expenseCount: 0,
+      totalCents: 0,
+      categoryTotals: {},
+    });
   });
 
   it("totals expenses across groups and ignores settlements", async () => {
@@ -24,7 +29,12 @@ describe("stats.overview", () => {
     addExpense(other, bob, 2500);
     addSettlement(group, bob, alice, 500);
 
-    expect(await testCaller().stats.overview()).toEqual({ groupCount: 2, expenseCount: 2, totalCents: 3500 });
+    expect(await testCaller().stats.overview()).toEqual({
+      groupCount: 2,
+      expenseCount: 2,
+      totalCents: 3500,
+      categoryTotals: { Other: 3500 },
+    });
   });
 
   it("reflects an edited and a deleted expense", async () => {
@@ -46,7 +56,12 @@ describe("stats.overview", () => {
     settleUp(group);
     await caller.groups.delete({ groupId: group.id });
 
-    expect(await caller.stats.overview()).toEqual({ groupCount: 1, expenseCount: 1, totalCents: 2500 });
+    expect(await caller.stats.overview()).toEqual({
+      groupCount: 1,
+      expenseCount: 1,
+      totalCents: 2500,
+      categoryTotals: { Other: 2500 },
+    });
   });
 
   it("agrees with the visible group list once a group is archived", async () => {
@@ -73,13 +88,23 @@ describe("stats after archiving", () => {
 
     await caller.groups.archive({ groupId: group.id });
 
-    expect(await caller.stats.overview()).toEqual({ groupCount: 1, expenseCount: 1, totalCents: 2500 });
+    expect(await caller.stats.overview()).toEqual({
+      groupCount: 1,
+      expenseCount: 1,
+      totalCents: 2500,
+      categoryTotals: { Other: 2500 },
+    });
     expect((await caller.stats.recentExpenses()).map((e) => e.id)).toEqual([keptExpense.id]);
     expect((await caller.stats.leaderboard()).map((entry) => entry.userId)).toEqual([bob.id]);
 
     await caller.groups.unarchive({ groupId: group.id });
 
-    expect(await caller.stats.overview()).toEqual({ groupCount: 2, expenseCount: 2, totalCents: 3500 });
+    expect(await caller.stats.overview()).toEqual({
+      groupCount: 2,
+      expenseCount: 2,
+      totalCents: 3500,
+      categoryTotals: { Other: 3500 },
+    });
     expect((await caller.stats.recentExpenses()).map((e) => e.id).sort()).toEqual(
       [archivedExpense.id, keptExpense.id].sort()
     );
@@ -160,5 +185,55 @@ describe("stats.leaderboard", () => {
     await caller.groups.delete({ groupId: group.id });
 
     expect(await caller.stats.leaderboard()).toEqual([]);
+  });
+});
+
+describe("stats.overview categoryTotals", () => {
+  it("sums each category and leaves out archived groups", async () => {
+    const caller = testCaller();
+    addExpense(group, alice, 1000, { category: "Food" });
+    addExpense(group, bob, 500, { category: "Food" });
+    addExpense(other, alice, 2000, { category: "Rent" });
+    settleUp(other);
+    await caller.groups.archive({ groupId: other.id });
+
+    expect((await caller.stats.overview()).categoryTotals).toEqual({ Food: 1500 });
+  });
+});
+
+describe("stats.myBalances", () => {
+  it("keeps what you're owed and what you owe apart across groups", async () => {
+    addExpense(group, alice, 1000);
+    addExpense(other, bob, 3000);
+
+    expect(await testCaller().stats.myBalances({ userId: alice.id })).toEqual({
+      owedCents: 500,
+      oweCents: 1500,
+      perGroup: [
+        { groupId: group.id, netCents: 500 },
+        { groupId: other.id, netCents: -1500 },
+      ],
+    });
+  });
+
+  it("leaves out archived groups", async () => {
+    const caller = testCaller();
+    addExpense(other, alice, 1000);
+    settleUp(other);
+    await caller.groups.archive({ groupId: other.id });
+
+    const { perGroup } = await caller.stats.myBalances({ userId: alice.id });
+    expect(perGroup.map((g) => g.groupId)).toEqual([group.id]);
+  });
+
+  it("leaves out groups the user has no part in", async () => {
+    const outsider = makeUser("Outsider");
+    addExpense(group, alice, 1000);
+
+    expect(await testCaller().stats.myBalances({ userId: outsider.id })).toEqual({
+      owedCents: 0,
+      oweCents: 0,
+      perGroup: [],
+    });
   });
 });
