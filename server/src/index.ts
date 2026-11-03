@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "./routers/index.js";
+import { csvField } from "./lib/csv.js";
 import { db } from "./lib/db.js";
 
 const app = express();
@@ -16,10 +17,6 @@ app.use(
 
 // Plain REST route, not tRPC — file downloads don't fit the RPC-over-fetch
 // shape tRPC expects, so this bypasses it entirely.
-function csvField(value: string): string {
-  return `"${value.replace(/"/g, '""')}"`;
-}
-
 app.get("/export/groups/:groupId.csv", (req, res) => {
   const group = db.groups.get(req.params.groupId);
   if (!group) {
