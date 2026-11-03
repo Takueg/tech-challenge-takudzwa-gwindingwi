@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import Select from "react-select";
 import { useTRPC } from "@/lib/trpc";
+import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
 import { useCurrentUser } from "@/context/current-user";
 import { parseAmountToCents } from "@/lib/parse-amount";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,7 @@ import type { Group } from "server/src/lib/db.js";
 
 export function QuickAddExpense({ groups }: { groups: Group[] }) {
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
+  const invalidateExpenseData = useInvalidateExpenseData();
   const { currentUserId } = useCurrentUser();
   const [groupId, setGroupId] = useState("");
   const [description, setDescription] = useState("");
@@ -18,8 +19,7 @@ export function QuickAddExpense({ groups }: { groups: Group[] }) {
   const quickAdd = useMutation(
     trpc.quickAdd.create.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: trpc.groups.list.queryKey() });
-        queryClient.invalidateQueries({ queryKey: trpc.stats.overview.queryKey() });
+        invalidateExpenseData();
         setDescription("");
         setAmount("");
       },
@@ -27,9 +27,14 @@ export function QuickAddExpense({ groups }: { groups: Group[] }) {
   );
 
   const amountCents = parseAmountToCents(amount);
-  const canSubmit = groupId && description.trim().length > 0 && amountCents > 0 && currentUserId;
 
-  const groupOptions = groups.map((group) => ({ value: group.id, label: group.name }));
+  // The current user is recorded as the payer, so only their own groups can be picked.
+  const groupOptions = groups
+    .filter((group) => currentUserId && group.memberIds.includes(currentUserId))
+    .map((group) => ({ value: group.id, label: group.name }));
+  // Switching user can make the chosen group unavailable, which clears the selection.
+  const selectedGroup = groupOptions.find((o) => o.value === groupId) ?? null;
+  const canSubmit = selectedGroup && description.trim().length > 0 && amountCents > 0 && currentUserId;
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md border p-3">
@@ -38,7 +43,7 @@ export function QuickAddExpense({ groups }: { groups: Group[] }) {
           options={groupOptions}
           placeholder="Group"
           onChange={(option) => setGroupId(option?.value ?? "")}
-          value={groupOptions.find((o) => o.value === groupId) ?? null}
+          value={selectedGroup}
         />
       </div>
       <Input
@@ -52,8 +57,9 @@ export function QuickAddExpense({ groups }: { groups: Group[] }) {
         type="button"
         disabled={!canSubmit || quickAdd.isPending}
         onClick={() =>
+          selectedGroup &&
           currentUserId &&
-          quickAdd.mutate({ groupId, description: description.trim(), amountCents, paidByUserId: currentUserId })
+          quickAdd.mutate({ groupId: selectedGroup.value, description: description.trim(), amountCents, paidByUserId: currentUserId })
         }
         className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
       >

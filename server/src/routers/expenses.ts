@@ -1,53 +1,49 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../trpc.js";
-import { db, nextId, type Expense } from "../lib/db.js";
+import { db, type Expense } from "../lib/db.js";
 import { detectExpenseCategory } from "../lib/category.js";
-import { splitStrategyRegistry } from "../lib/split-strategies/index.js";
+import { computeEqualSplits, createExpense, createExpenseInput, listActiveExpenses } from "../lib/expense-service.js";
+import { amountCentsSchema, nonBlankStringSchema } from "../lib/schemas.js";
 import { computeNetBalances, simplifyDebts } from "../lib/balances.js";
+import { badRequest, conflict, notFound } from "../lib/errors.js";
+
+function requireEditableExpense(expenseId: string): Expense {
+  const expense = db.expenses.get(expenseId);
+  if (!expense) throw notFound(`Expense ${expenseId} not found`);
+  if (db.groups.get(expense.groupId)?.archivedAt) throw conflict("Can't change an expense in an archived group");
+  return expense;
+}
 
 export const expensesRouter = router({
   search: publicProcedure.input(z.object({ query: z.string() })).query(({ input }) => {
     const needle = input.query.trim().toLowerCase();
     if (!needle) return [];
-    return Array.from(db.expenses.values())
+    return listActiveExpenses()
       .filter((e) => e.description.toLowerCase().includes(needle))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }),
 
   previewSplit: publicProcedure
-    .input(z.object({ groupId: z.string(), amountCents: z.number().int().positive() }))
+    .input(z.object({ groupId: z.string(), amountCents: amountCentsSchema }))
     .query(({ input }) => {
       const group = db.groups.get(input.groupId);
-      if (!group) throw new Error(`Group ${input.groupId} not found`);
-
-      // Quick preview math — remainder cents go to the LAST members here,
-      // not the first, unlike the actual EqualSplitStrategy used on submit.
-      const memberIds = group.memberIds;
-      const share = Math.floor(input.amountCents / memberIds.length);
-      const remainder = input.amountCents - share * memberIds.length;
-      return memberIds.map((userId, i) => ({
-        userId,
-        amountCents: share + (i >= memberIds.length - remainder ? 1 : 0),
-      }));
+      if (!group) throw notFound(`Group ${input.groupId} not found`);
+      return computeEqualSplits(input.amountCents, group.memberIds);
     }),
 
   previewBalances: publicProcedure
-    .input(z.object({ groupId: z.string(), amountCents: z.number().int().positive(), paidByUserId: z.string() }))
+    .input(z.object({ groupId: z.string(), amountCents: amountCentsSchema, paidByUserId: z.string() }))
     .query(({ input }) => {
       const group = db.groups.get(input.groupId);
-      if (!group) throw new Error(`Group ${input.groupId} not found`);
+      if (!group) throw notFound(`Group ${input.groupId} not found`);
+      if (!group.memberIds.includes(input.paidByUserId)) {
+        throw badRequest("Payer must be a member of the group");
+      }
 
-      const currentBalances = computeNetBalances(input.groupId);
-      const net = new Map(currentBalances.map((b) => [b.userId, b.netCents]));
-
-      // Layer the hypothetical expense on top of current balances. Uses its
-      // own even-split math (each share rounded independently) rather than
-      // going through previewSplit or the real split strategy.
-      const memberIds = group.memberIds;
-      const roughShare = Math.round(input.amountCents / memberIds.length);
+      const net = new Map(computeNetBalances(input.groupId).map((b) => [b.userId, b.netCents]));
       net.set(input.paidByUserId, (net.get(input.paidByUserId) ?? 0) + input.amountCents);
-      for (const userId of memberIds) {
-        net.set(userId, (net.get(userId) ?? 0) - roughShare);
+      for (const split of computeEqualSplits(input.amountCents, group.memberIds)) {
+        net.set(split.userId, (net.get(split.userId) ?? 0) - split.amountCents);
       }
 
       const projectedBalances = Array.from(net.entries()).map(([userId, netCents]) => ({ userId, netCents }));
@@ -57,55 +53,12 @@ export const expensesRouter = router({
       };
     }),
 
-  create: publicProcedure
-    .input(
-      z.object({
-        groupId: z.string(),
-        description: z.string().min(1),
-        amountCents: z.number().int().positive(),
-        paidByUserId: z.string(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const group = db.groups.get(input.groupId);
-      if (!group) throw new Error(`Group ${input.groupId} not found`);
-      if (!group.memberIds.includes(input.paidByUserId)) {
-        throw new Error("Payer must be a member of the group");
-      }
-
-      const existingForGroup = db.groupExpenseCache.get(input.groupId) ?? [];
-      const category = await detectExpenseCategory(input.description);
-
-      const splitContext = { amountCents: input.amountCents, memberIds: group.memberIds };
-      const strategy = splitStrategyRegistry.resolveByType("equal");
-      const validation = strategy.validate(splitContext);
-      if (!validation.valid) throw new Error(validation.error);
-
-      const now = new Date().toISOString();
-      const expense: Expense = {
-        id: nextId("expense"),
-        groupId: input.groupId,
-        description: input.description,
-        amountCents: input.amountCents,
-        currency: "EUR",
-        paidByUserId: input.paidByUserId,
-        paidByUserName: db.users.get(input.paidByUserId)?.name ?? "Unknown",
-        splits: strategy.computeSplits(splitContext),
-        category,
-        status: "active",
-        createdAt: now,
-        updatedAt: now,
-      };
-      db.expenses.set(expense.id, expense);
-      db.groupExpenseCache.set(input.groupId, [...existingForGroup, expense]);
-      return expense;
-    }),
+  create: publicProcedure.input(createExpenseInput).mutation(({ input }) => createExpense(input)),
 
   uploadReceipt: publicProcedure
     .input(z.object({ expenseId: z.string(), receiptUrl: z.string() }))
     .mutation(({ input }) => {
-      const expense = db.expenses.get(input.expenseId);
-      if (!expense) throw new Error(`Expense ${input.expenseId} not found`);
+      const expense = requireEditableExpense(input.expenseId);
       expense.receiptUrl = input.receiptUrl;
       return expense;
     }),
@@ -114,28 +67,34 @@ export const expensesRouter = router({
     .input(
       z.object({
         expenseId: z.string(),
-        description: z.string().min(1),
-        amountCents: z.number().int().positive(),
+        description: nonBlankStringSchema,
+        amountCents: amountCentsSchema,
       })
     )
-    .mutation(({ input }) => {
-      const expense = db.expenses.get(input.expenseId);
-      if (!expense) throw new Error(`Expense ${input.expenseId} not found`);
+    .mutation(async ({ input }) => {
+      const before = requireEditableExpense(input.expenseId);
+      const category =
+        input.description === before.description ? before.category : await detectExpenseCategory(input.description);
+
+      // Looked up again because the expense may have been deleted or archived during detection.
+      const expense = requireEditableExpense(input.expenseId);
+      if (input.amountCents !== expense.amountCents) {
+        // Re-split across the people on this expense, who may differ from today's members.
+        expense.splits = computeEqualSplits(
+          input.amountCents,
+          expense.splits.map((s) => s.userId)
+        );
+      }
       expense.description = input.description;
       expense.amountCents = input.amountCents;
+      expense.category = category;
       expense.updatedAt = new Date().toISOString();
       return expense;
     }),
 
   delete: publicProcedure.input(z.object({ expenseId: z.string() })).mutation(({ input }) => {
-    const expense = db.expenses.get(input.expenseId);
-    if (!expense) throw new Error(`Expense ${input.expenseId} not found`);
+    requireEditableExpense(input.expenseId);
     db.expenses.delete(input.expenseId);
-    const cached = db.groupExpenseCache.get(expense.groupId) ?? [];
-    db.groupExpenseCache.set(
-      expense.groupId,
-      cached.filter((e) => e.id !== input.expenseId)
-    );
     return { ok: true };
   }),
 });

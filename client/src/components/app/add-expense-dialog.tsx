@@ -12,46 +12,42 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { previewEqualSplit } from "@/lib/split-preview";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
 import { parseAmountToCents } from "@/lib/parse-amount";
 import { formatCents } from "@/lib/format";
-import type { User } from "server/src/lib/db.js";
+import type { PublicUser } from "server/src/lib/db.js";
 
 export function AddExpenseDialog({
   groupId,
   members,
+  nameOf,
 }: {
   groupId: string;
-  members: User[];
+  members: PublicUser[];
+  nameOf: (userId: string) => string;
 }) {
   const trpc = useTRPC();
+  const invalidateExpenseData = useInvalidateExpenseData();
   const [open, setOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
-  const [paidByName, setPaidByName] = useState("");
+  const [paidByUserId, setPaidByUserId] = useState("");
 
   const createExpense = useMutation(
     trpc.expenses.create.mutationOptions({
       onSuccess: () => {
-        // Deliberately no invalidateQueries here — see #23. Closing/clearing
-        // the form is its own, separate concern from whether the list refreshes.
+        invalidateExpenseData();
         setOpen(false);
         setDescription("");
         setAmount("");
-        setPaidByName("");
+        setPaidByUserId("");
       },
     })
   );
 
-  // Resolve the typed name to a member — falls back to the first group member
-  // if nothing matches, rather than blocking submission.
-  const resolvedPayer =
-    members.find((m) => m.name.trim().toLowerCase() === paidByName.trim().toLowerCase()) ?? members[0];
-  const paidByUserId = resolvedPayer?.id ?? "";
-
   const amountCents = parseAmountToCents(amount);
-  const canSubmit = description.trim().length > 0 && amountCents > 0 && paidByName.trim().length > 0;
-  const preview = amountCents > 0 ? previewEqualSplit(amountCents, members.length) : [];
+  const canSubmit = description.trim().length > 0 && amountCents > 0 && Boolean(paidByUserId);
 
   const { data: serverPreview } = useQuery({
     ...trpc.expenses.previewSplit.queryOptions({ groupId, amountCents }),
@@ -94,36 +90,31 @@ export function AddExpenseDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="paid-by">Paid by</Label>
-            <Input
-              id="paid-by"
-              value={paidByName}
-              onChange={(e) => setPaidByName(e.target.value)}
-              placeholder="Type their name…"
-            />
+            <Select value={paidByUserId} onValueChange={setPaidByUserId}>
+              <SelectTrigger id="paid-by" className="w-full">
+                <SelectValue placeholder="Who paid?" />
+              </SelectTrigger>
+              <SelectContent>
+                {members.map((member) => (
+                  <SelectItem key={member.id} value={member.id}>
+                    {member.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">
               Split equally among all {members.length} group members:
             </p>
-            {preview.length > 0 && (
-              <ul className="space-y-0.5 rounded-md border p-2 text-xs text-muted-foreground">
-                {members.map((member, i) => (
-                  <li key={member.id} className="flex justify-between">
-                    <span>{member.name}</span>
-                    <span>€{preview[i].toFixed(2)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
 
           {serverPreview && serverPreview.length > 0 && (
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Amounts:</p>
               <ul className="space-y-0.5 rounded-md bg-muted/40 p-2 text-xs">
                 {serverPreview.map((split) => (
                   <li key={split.userId} className="flex justify-between">
-                    <span>{members.find((m) => m.id === split.userId)?.name ?? split.userId}</span>
+                    <span>{nameOf(split.userId)}</span>
                     <span>{formatCents(split.amountCents)}</span>
                   </li>
                 ))}
@@ -137,7 +128,7 @@ export function AddExpenseDialog({
               <ul className="space-y-0.5 text-xs">
                 {balancePreview.balances.map((b) => (
                   <li key={b.userId} className="flex justify-between">
-                    <span>{members.find((m) => m.id === b.userId)?.name ?? b.userId}</span>
+                    <span>{nameOf(b.userId)}</span>
                     <span className={b.netCents >= 0 ? "text-emerald-600" : "text-red-600"}>
                       {b.netCents === 0
                         ? "settled up"
@@ -152,8 +143,8 @@ export function AddExpenseDialog({
                 <ul className="space-y-0.5 text-xs text-muted-foreground">
                   {balancePreview.suggestedTransfers.map((t, i) => (
                     <li key={i}>
-                      {members.find((m) => m.id === t.fromUserId)?.name ?? t.fromUserId} → {" "}
-                      {members.find((m) => m.id === t.toUserId)?.name ?? t.toUserId}:{" "}
+                      {nameOf(t.fromUserId)} → {" "}
+                      {nameOf(t.toUserId)}:{" "}
                       {formatCents(t.amountCents)}
                     </li>
                   ))}

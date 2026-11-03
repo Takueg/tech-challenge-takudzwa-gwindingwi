@@ -10,6 +10,13 @@ export type User = {
   avatarUrl?: string;
 };
 
+export type PublicUser = Omit<User, "password">;
+
+/** Every user leaving the API goes through this, so the password never does. */
+export function toPublicUser({ password: _password, ...publicUser }: User): PublicUser {
+  return publicUser;
+}
+
 export type Group = {
   id: string;
   name: string;
@@ -30,7 +37,7 @@ export type Expense = {
   amountCents: number;
   currency: "EUR";
   paidByUserId: string;
-  /** Snapshot of the payer's name at creation time — not kept in sync if they rename themselves later. */
+  /** Denormalized for the CSV export. `users.update` keeps it in sync when the payer renames themselves. */
   paidByUserName: string;
   splits: ExpenseSplit[];
   category: string;
@@ -55,8 +62,6 @@ export const db = {
   groups: new Map<string, Group>(),
   expenses: new Map<string, Expense>(),
   settlements: new Map<string, Settlement>(),
-  /** Denormalized per-group expense list, kept in sync by the expenses router. */
-  groupExpenseCache: new Map<string, Expense[]>(),
 };
 
 let idCounter = 0;
@@ -89,7 +94,6 @@ function seed() {
   function makeGroup(name: string, memberIds: string[], createdAt: Date): Group {
     const group: Group = { id: nextId("group"), name, memberIds, createdAt: createdAt.toISOString() };
     db.groups.set(group.id, group);
-    db.groupExpenseCache.set(group.id, []);
     return group;
   }
 
@@ -98,8 +102,6 @@ function seed() {
   const skiTrip = makeGroup("Ski Trip 2025", [bob.id, carol.id, frank.id, grace.id], new Date(2026, 5, 15));
   const bookClub = makeGroup("Book Club", [carol.id, emma.id, henry.id], new Date(2026, 6, 8));
   const lunchCrew = makeGroup("Work Lunch Crew", [dave.id, frank.id, henry.id], new Date(2026, 6, 5));
-
-  const equalSplitStrategy = splitStrategyRegistry.resolveByType("equal");
 
   function addExpense(
     group: Group,
@@ -117,14 +119,13 @@ function seed() {
       currency: "EUR",
       paidByUserId: paidBy.id,
       paidByUserName: paidBy.name,
-      splits: equalSplitStrategy.computeSplits({ amountCents, memberIds: group.memberIds }),
+      splits: splitStrategyRegistry.split("equal", { amountCents, memberIds: group.memberIds }),
       category,
       status: "active",
       createdAt: date.toISOString(),
       updatedAt: date.toISOString(),
     };
     db.expenses.set(expense.id, expense);
-    db.groupExpenseCache.set(group.id, [...(db.groupExpenseCache.get(group.id) ?? []), expense]);
     return expense;
   }
 

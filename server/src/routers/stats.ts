@@ -1,30 +1,26 @@
 import { publicProcedure, router } from "../trpc.js";
 import { db } from "../lib/db.js";
+import { listActiveExpenses } from "../lib/expense-service.js";
 
 export const statsRouter = router({
   overview: publicProcedure.query(() => {
-    let expenseCount = 0;
-    let totalCents = 0;
-    for (const expense of db.expenses.values()) {
-      expenseCount += 1;
-      totalCents += expense.amountCents;
-    }
+    const expenses = listActiveExpenses();
     return {
-      groupCount: db.groups.size,
-      expenseCount,
-      totalCents,
+      groupCount: Array.from(db.groups.values()).filter((group) => !group.archivedAt).length,
+      expenseCount: expenses.length,
+      totalCents: expenses.reduce((sum, expense) => sum + expense.amountCents, 0),
     };
   }),
 
   recentExpenses: publicProcedure.query(() => {
-    return Array.from(db.expenses.values())
+    return listActiveExpenses()
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .slice(0, 5);
   }),
 
   leaderboard: publicProcedure.query(() => {
     const totalsByUser = new Map<string, number>();
-    for (const expense of db.expenses.values()) {
+    for (const expense of listActiveExpenses()) {
       totalsByUser.set(expense.paidByUserId, (totalsByUser.get(expense.paidByUserId) ?? 0) + expense.amountCents);
     }
     return Array.from(totalsByUser.entries())

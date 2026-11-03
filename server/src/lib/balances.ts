@@ -1,4 +1,5 @@
 import { db } from "./db.js";
+import { notFound } from "./errors.js";
 
 export type NetBalance = {
   userId: string;
@@ -13,7 +14,7 @@ export type Transfer = {
 
 export function computeNetBalances(groupId: string): NetBalance[] {
   const group = db.groups.get(groupId);
-  if (!group) throw new Error(`Group ${groupId} not found`);
+  if (!group) throw notFound(`Group ${groupId} not found`);
 
   const net = new Map<string, number>();
   for (const userId of group.memberIds) net.set(userId, 0);
@@ -32,10 +33,16 @@ export function computeNetBalances(groupId: string): NetBalance[] {
     net.set(settlement.toUserId, (net.get(settlement.toUserId) ?? 0) - settlement.amountCents);
   }
 
-  return Array.from(net.entries()).map(([userId, netCents]) => ({ userId, netCents }));
+  // A settled former member has nothing left to show. Anyone else stays listed.
+  return Array.from(net.entries())
+    .filter(([userId, netCents]) => netCents !== 0 || group.memberIds.includes(userId))
+    .map(([userId, netCents]) => ({ userId, netCents }));
 }
 
-/** Greedy minimal-transfer settlement: largest creditor paid by largest debtor, repeat. */
+/**
+ * Greedy settlement: largest debtor pays largest creditor, repeat. Always settles
+ * everyone in under one transfer per person, but isn't guaranteed to find the fewest.
+ */
 export function simplifyDebts(balances: NetBalance[]): Transfer[] {
   const creditors = balances
     .filter((b) => b.netCents > 0)

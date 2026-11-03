@@ -1,4 +1,4 @@
-import type { SplitStrategy, SplitStrategyContext } from "./types.js";
+import type { SplitLine, SplitStrategy, SplitStrategyContext } from "./types.js";
 import { EqualSplitStrategy } from "./equal-split-strategy.js";
 
 /**
@@ -31,6 +31,14 @@ export class SplitStrategyRegistry {
     const strategy = this.strategies.find((s) => s.canHandle(context));
     if (!strategy) throw new Error("No registered split strategy can handle this input");
     return strategy;
+  }
+
+  /** Validates, then computes. Production code splits through here so validation can't be skipped. */
+  split(type: string, context: SplitStrategyContext): SplitLine[] {
+    const strategy = this.resolveByType(type);
+    const validation = strategy.validate(context);
+    if (!validation.valid) throw new Error(validation.error);
+    return strategy.computeSplits(context);
   }
 }
 

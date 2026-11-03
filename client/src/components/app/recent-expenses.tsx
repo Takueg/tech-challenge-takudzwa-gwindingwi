@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc";
 import { useCurrentUser } from "@/context/current-user";
 import { formatCents } from "@/lib/format";
+import { shareOf } from "@/lib/share";
 
 export function RecentExpenses() {
   const trpc = useTRPC();
@@ -19,7 +20,7 @@ export function RecentExpenses() {
         {recentExpenses.map((expense) => {
           const group = groups?.find((g) => g.id === expense.groupId);
           const payer = users?.find((u) => u.id === expense.paidByUserId);
-          const memberCount = group?.memberIds.length ?? 1;
+          const share = shareOf(expense, currentUserId);
           return (
             <div key={expense.id}>
               {expense.description}{" "}
@@ -27,7 +28,7 @@ export function RecentExpenses() {
                 {expense.category}
               </span>{" "}
               — {payer?.name ?? "Someone"} paid in {group?.name ?? "a group"}, {formatCents(expense.amountCents)}
-              {currentUserId && <> {formatCents(Math.round(expense.amountCents / memberCount))}</>}
+              {share !== undefined && <> (your share: {formatCents(share)})</>}
             </div>
           );
         })}

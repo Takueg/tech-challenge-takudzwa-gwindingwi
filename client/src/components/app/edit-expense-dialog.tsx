@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Pencil } from "lucide-react";
 import { useTRPC } from "@/lib/trpc";
+import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
 import { parseAmountToCents } from "@/lib/parse-amount";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,27 +17,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export function EditExpenseDialog({
-  groupId,
   expenseId,
   currentDescription,
   currentAmountCents,
   currentReceiptUrl,
 }: {
-  groupId: string;
   expenseId: string;
   currentDescription: string;
   currentAmountCents: number;
   currentReceiptUrl?: string;
 }) {
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateExpenseData();
   const [open, setOpen] = useState(false);
   const [description, setDescription] = useState(currentDescription);
   const [amount, setAmount] = useState((currentAmountCents / 100).toFixed(2));
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: trpc.groups.detail.queryKey({ groupId }) });
 
   const updateExpense = useMutation(
     trpc.expenses.update.mutationOptions({

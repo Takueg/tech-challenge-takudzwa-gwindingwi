@@ -4,14 +4,14 @@ import { X } from "lucide-react";
 import { useTRPC } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { User } from "server/src/lib/db.js";
+import type { PublicUser } from "server/src/lib/db.js";
 
 export function ManageMembers({
   groupId,
   members,
 }: {
   groupId: string;
-  members: User[];
+  members: PublicUser[];
 }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
