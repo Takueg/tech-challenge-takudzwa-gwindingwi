@@ -390,6 +390,81 @@ describe("groups.detail", () => {
     await expect(testCaller().groups.detail({ groupId: "missing" })).rejects.toThrow(/not found/i);
   });
 
+  describe("formerMembers", () => {
+    async function removeCarol() {
+      settleUp(group);
+      await testCaller().groups.removeMember({ groupId: group.id, userId: carol.id });
+    }
+
+    it("names a removed member who paid for an expense, with only their id and name", async () => {
+      addExpense(group, carol, 3000);
+      await removeCarol();
+
+      const detail = await testCaller().groups.detail({ groupId: group.id });
+
+      expect(detail.formerMembers).toEqual([{ id: carol.id, name: "Carol" }]);
+    });
+
+    it("names a removed member who was only on a split", async () => {
+      addExpense(group, alice, 3000);
+      await removeCarol();
+
+      const detail = await testCaller().groups.detail({ groupId: group.id });
+
+      expect(detail.formerMembers).toEqual([{ id: carol.id, name: "Carol" }]);
+    });
+
+    it("names a removed member who only appears in a settlement", async () => {
+      addSettlement(group, carol, alice, 500);
+      addSettlement(group, alice, carol, 500);
+      await removeCarol();
+
+      const detail = await testCaller().groups.detail({ groupId: group.id });
+
+      expect(detail.formerMembers).toEqual([{ id: carol.id, name: "Carol" }]);
+    });
+
+    it("names a former member who owes again after an old expense is edited", async () => {
+      const caller = testCaller();
+      const expense = addExpense(group, alice, 3000);
+      await removeCarol();
+
+      await caller.expenses.update({ expenseId: expense.id, description: expense.description, amountCents: 6000 });
+
+      const detail = await caller.groups.detail({ groupId: group.id });
+      expect(netOf(detail.balances, carol)).toBe(-1000);
+      expect(detail.formerMembers).toEqual([{ id: carol.id, name: "Carol" }]);
+    });
+
+    it("shows a former member's current name after a rename", async () => {
+      addExpense(group, alice, 3000);
+      await removeCarol();
+      await testCaller().users.update({ userId: carol.id, name: "Caroline", email: "caroline@test.com" });
+
+      const detail = await testCaller().groups.detail({ groupId: group.id });
+
+      expect(detail.formerMembers).toEqual([{ id: carol.id, name: "Caroline" }]);
+    });
+
+    it("leaves out current members and removed members with no history", async () => {
+      await testCaller().groups.removeMember({ groupId: group.id, userId: carol.id });
+
+      const detail = await testCaller().groups.detail({ groupId: group.id });
+
+      expect(detail.formerMembers).toEqual([]);
+    });
+
+    it("doesn't list anyone twice", async () => {
+      addExpense(group, carol, 3000);
+      addExpense(group, carol, 1500);
+      await removeCarol();
+
+      const detail = await testCaller().groups.detail({ groupId: group.id });
+
+      expect(detail.formerMembers).toHaveLength(1);
+    });
+  });
+
   it("does not expose member passwords", async () => {
     const detail = await testCaller().groups.detail({ groupId: group.id });
     for (const member of detail.members) expect(member).not.toHaveProperty("password");

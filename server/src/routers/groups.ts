@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../trpc.js";
-import { db, nextId, toPublicUser, type Group } from "../lib/db.js";
+import { db, nextId, toPublicUser, type Expense, type Group, type Settlement } from "../lib/db.js";
 import { computeNetBalances, simplifyDebts } from "../lib/balances.js";
 import { archiveGroup, deleteGroup, unarchiveGroup } from "../lib/group-service.js";
 import { nonBlankStringSchema } from "../lib/schemas.js";
@@ -19,6 +19,19 @@ function listGroupsWithTotals(includeGroup: (group: Group) => boolean) {
       }
       return { ...group, expenseCount, totalCents };
     });
+}
+
+/** People on this group's history who have since left. Name only, since the UI just needs to label them. */
+function listFormerMembers(group: Group, expenses: Expense[], settlements: Settlement[]) {
+  const involvedIds = new Set([
+    ...expenses.flatMap((e) => [e.paidByUserId, ...e.splits.map((s) => s.userId)]),
+    ...settlements.flatMap((s) => [s.fromUserId, s.toUserId]),
+  ]);
+  return Array.from(involvedIds)
+    .filter((id) => !group.memberIds.includes(id))
+    .map((id) => db.users.get(id))
+    .filter((u): u is NonNullable<typeof u> => Boolean(u))
+    .map(({ id, name }) => ({ id, name }));
 }
 
 export const groupsRouter = router({
@@ -116,6 +129,8 @@ export const groupsRouter = router({
     const balances = computeNetBalances(group.id);
     const suggestedTransfers = simplifyDebts(balances);
 
-    return { group, members, expenses, settlements, balances, suggestedTransfers, categoryTotals };
+    const formerMembers = listFormerMembers(group, expenses, settlements);
+
+    return { group, members, formerMembers, expenses, settlements, balances, suggestedTransfers, categoryTotals };
   }),
 });

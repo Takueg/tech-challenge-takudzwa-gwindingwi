@@ -78,8 +78,9 @@ export function GroupDetailPage() {
 
   if (isLoading || !data) return <p className="text-muted-foreground">Loading…</p>;
 
-  const { group, members, expenses, balances, suggestedTransfers, categoryTotals } = data;
-  const nameOf = (userId: string) => members.find((m) => m.id === userId)?.name ?? "Unknown";
+  const { group, members, formerMembers, expenses, balances, suggestedTransfers, categoryTotals } = data;
+  const nameOf = (userId: string) =>
+    [...members, ...formerMembers].find((person) => person.id === userId)?.name ?? "Unknown";
   const headerTotalCents = expenses.reduce((sum, e) => sum + e.amountCents, 0);
   const categoryTotalCents = Object.values(categoryTotals).reduce((sum, c) => sum + c, 0);
 
@@ -124,7 +125,7 @@ export function GroupDetailPage() {
             >
               Export CSV
             </a>
-            <AddExpenseDialog groupId={group.id} members={members} />
+            <AddExpenseDialog groupId={group.id} members={members} nameOf={nameOf} />
           </div>
           <div className="divide-y rounded-md border">
             {expenses.length === 0 && (
