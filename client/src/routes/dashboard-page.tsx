@@ -22,13 +22,11 @@ const EMPTY_TOTALS: Record<string, number> = {};
 function TotalsHeader({
   loading,
   overview,
-  owedCents,
-  oweCents,
+  balances,
 }: {
   loading: boolean;
   overview?: RouterOutputs["stats"]["overview"];
-  owedCents: number;
-  oweCents: number;
+  balances?: RouterOutputs["stats"]["myBalances"];
 }) {
   return (
     <section aria-label="Your totals" className="flex flex-wrap items-center gap-[18px]">
@@ -46,7 +44,9 @@ function TotalsHeader({
           <>
             <span className="[font:700_36px/1_var(--font-poppins)]">{overview ? formatCents(overview.totalCents) : "-"}</span>
             <span className="[font:400_15px/1.2_var(--font-spartan)]">
-              Across {overview?.groupCount ?? 0} {overview?.groupCount === 1 ? "group" : "groups"}
+              {overview
+                ? `Across ${overview.groupCount} ${overview.groupCount === 1 ? "group" : "groups"}`
+                : "Couldn’t load your totals"}
             </span>
           </>
         )}
@@ -59,8 +59,12 @@ function TotalsHeader({
           </>
         ) : (
           <>
-            <SummaryCard label="You Are Owed" amount={formatCents(owedCents)} />
-            <SummaryCard expense label="You Owe" amount={formatCents(oweCents === 0 ? 0 : -oweCents)} />
+            <SummaryCard label="You Are Owed" amount={balances ? formatCents(balances.owedCents) : "-"} />
+            <SummaryCard
+              expense
+              label="You Owe"
+              amount={balances ? formatCents(balances.oweCents === 0 ? 0 : -balances.oweCents) : "-"}
+            />
           </>
         )}
       </div>
@@ -159,7 +163,8 @@ export function DashboardPage() {
   const busy = headerLoading || debts.isLoading || expenses.isLoading || groups.isLoading;
   const nameOf = (userId: string) =>
     userId === currentUserId ? "You" : (users.data?.find((user) => user.id === userId)?.name ?? "…");
-  const netOf = (groupId: string) => balances.data?.perGroup.find((g) => g.groupId === groupId)?.netCents ?? 0;
+  const netOf = (groupId: string) =>
+    balances.data ? (balances.data.perGroup.find((g) => g.groupId === groupId)?.netCents ?? 0) : undefined;
   const owedBy = debts.data?.filter((debt) => debt.toUserId === currentUserId).length ?? 0;
   const owes = debts.data?.filter((debt) => debt.fromUserId === currentUserId).length ?? 0;
 
@@ -172,8 +177,7 @@ export function DashboardPage() {
           <TotalsHeader
             loading={headerLoading}
             overview={overview.data}
-            owedCents={balances.data?.owedCents ?? 0}
-            oweCents={balances.data?.oweCents ?? 0}
+            balances={balances.data}
           />
         </div>
       }
@@ -207,7 +211,7 @@ export function DashboardPage() {
                 <Skeleton line width={170} height={12} className="mt-[3px]" />
               ) : (
                 <span className="[font:400_14px/18px_var(--font-spartan)] text-muted-foreground">
-                  {settleHint(owedBy, owes)}
+                  {debts.data ? settleHint(owedBy, owes) : "Couldn’t load your balances"}
                 </span>
               )}
             </span>

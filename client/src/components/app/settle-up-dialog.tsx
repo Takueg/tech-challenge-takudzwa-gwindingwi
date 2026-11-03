@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DialogActions, ErrorBanner, FieldError, FormSummary } from "@/components/app/form-parts";
-import { EmptyState } from "@/components/app/states";
+import { EmptyState, ErrorState } from "@/components/app/states";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,7 @@ export function SettleUpDialog({ onClose }: { onClose: () => void }) {
   const invalidate = useInvalidateExpenseData();
   const undo = useUndo();
   const { currentUserId } = useCurrentUser();
-  const { data: debts, isLoading } = useQuery(
+  const { data: debts, isLoading, isError, refetch } = useQuery(
     trpc.settlements.suggestedForUser.queryOptions({ userId: currentUserId ?? "" })
   );
 
@@ -112,6 +112,8 @@ export function SettleUpDialog({ onClose }: { onClose: () => void }) {
               <Skeleton key={n} height={56} radius={14} />
             ))}
           </div>
+        ) : isError ? (
+          <ErrorState title="We Couldn’t Load Your Balances" onRetry={() => refetch()} />
         ) : !debts?.length ? (
           <EmptyState
             round
