@@ -80,7 +80,7 @@ describe("settlements.create", () => {
     const expense = addExpense(group, alice, 3000);
     await caller.settlements.create({ groupId: group.id, fromUserId: carol.id, toUserId: alice.id, amountCents: 1000 });
     await caller.groups.removeMembers({ groupId: group.id, userIds: [carol.id] });
-    await caller.expenses.update({ expenseId: expense.id, description: expense.description, amountCents: 6000 });
+    await caller.expenses.update({ expenseId: expense.id, description: expense.description, amountCents: 6000, userId: alice.id });
 
     await caller.settlements.create({ groupId: group.id, fromUserId: carol.id, toUserId: alice.id, amountCents: 1000 });
 
@@ -305,7 +305,7 @@ describe("settlements.restore", () => {
     const expense = addExpense(restoring, alice, 1000);
     const settlement = addSettlement(restoring, bob, alice, 500);
     await caller.settlements.delete({ settlementId: settlement.id });
-    await caller.expenses.delete({ expenseId: expense.id });
+    await caller.expenses.delete({ expenseId: expense.id, userId: alice.id });
 
     await expect(caller.settlements.restore({ settlementId: settlement.id })).rejects.toMatchObject({
       code: "CONFLICT",

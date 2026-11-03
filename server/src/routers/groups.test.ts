@@ -431,7 +431,7 @@ describe("groups.detail", () => {
       const expense = addExpense(group, alice, 3000);
       await removeCarol();
 
-      await caller.expenses.update({ expenseId: expense.id, description: expense.description, amountCents: 6000 });
+      await caller.expenses.update({ expenseId: expense.id, description: expense.description, amountCents: 6000, userId: alice.id });
 
       const detail = await caller.groups.detail({ groupId: group.id });
       expect(netOf(detail.balances, carol)).toBe(-1000);

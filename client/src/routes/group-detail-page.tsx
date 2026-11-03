@@ -401,7 +401,7 @@ function GroupDetail({ groupId }: { groupId: string }) {
         notify.success({
           title: "Expense Deleted",
           body: `“${expense?.description}” was removed and balances updated.`,
-          onUndo: () => undo(() => trpcClient.expenses.restore.mutate({ expenseId })),
+          onUndo: () => undo(() => trpcClient.expenses.restore.mutate({ expenseId, userId: currentUserId ?? "" })),
         });
       },
     })
@@ -487,7 +487,7 @@ function GroupDetail({ groupId }: { groupId: string }) {
       body: `This removes ${formatCents(expense.amountCents)} from ${groupName} and updates everyone’s balances. You can undo right after.`,
       confirmLabel: "Yes, Delete",
       cancelLabel: "Keep It",
-      onConfirm: () => deleteExpense.mutate({ expenseId }),
+      onConfirm: () => deleteExpense.mutate({ expenseId, userId: currentUserId ?? "" }),
     });
   };
   const askRecord = (transfer: Transfer) =>

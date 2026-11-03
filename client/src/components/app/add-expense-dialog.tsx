@@ -81,7 +81,7 @@ export function AddExpenseDialog({
           title: "Expense Added",
           body: `“${expense.description}” · ${formatCents(expense.amountCents)} in ${selected?.name}. Everyone’s balance is updated.`,
           onUndo: () =>
-            undo(() => trpcClient.expenses.delete.mutate({ expenseId: expense.id }), {
+            undo(() => trpcClient.expenses.delete.mutate({ expenseId: expense.id, userId: expense.paidByUserId }), {
               title: "Expense Removed",
               body: `“${expense.description}” was taken out of ${selected?.name}.`,
             }),

@@ -4,12 +4,14 @@ import { db, type Expense } from "../lib/db.js";
 import { detectExpenseCategory } from "../lib/category.js";
 import { computeEqualSplits, createExpense, createExpenseInput, listActiveExpenses } from "../lib/expense-service.js";
 import { amountCentsSchema, nonBlankStringSchema } from "../lib/schemas.js";
-import { badRequest, conflict, notFound } from "../lib/errors.js";
+import { badRequest, conflict, forbidden, notFound } from "../lib/errors.js";
 
-function requireEditableExpense(expenseId: string): Expense {
+/** Only the person who paid can change an expense, and not in an archived group. */
+function requireEditableExpense(expenseId: string, userId: string): Expense {
   const expense = db.expenses.get(expenseId);
   if (!expense) throw notFound(`Expense ${expenseId} not found`);
   if (db.groups.get(expense.groupId)?.archivedAt) throw conflict("Can't change an expense in an archived group");
+  if (expense.paidByUserId !== userId) throw forbidden("Only the person who paid can change this expense");
   return expense;
 }
 
@@ -50,15 +52,16 @@ export const expensesRouter = router({
         description: nonBlankStringSchema,
         amountCents: amountCentsSchema,
         paidByUserId: z.string().optional(),
+        userId: z.string(),
       })
     )
     .mutation(async ({ input }) => {
-      const before = requireEditableExpense(input.expenseId);
+      const before = requireEditableExpense(input.expenseId, input.userId);
       const category =
         input.description === before.description ? before.category : await detectExpenseCategory(input.description);
 
       // Looked up again because the expense may have been deleted or archived during detection.
-      const expense = requireEditableExpense(input.expenseId);
+      const expense = requireEditableExpense(input.expenseId, input.userId);
       if (input.paidByUserId && input.paidByUserId !== expense.paidByUserId) {
         const onExpense = expense.splits.some((s) => s.userId === input.paidByUserId);
         if (!onExpense && !db.groups.get(expense.groupId)?.memberIds.includes(input.paidByUserId)) {
@@ -81,20 +84,21 @@ export const expensesRouter = router({
       return expense;
     }),
 
-  delete: publicProcedure.input(z.object({ expenseId: z.string() })).mutation(({ input }) => {
-    const expense = requireEditableExpense(input.expenseId);
+  delete: publicProcedure.input(z.object({ expenseId: z.string(), userId: z.string() })).mutation(({ input }) => {
+    const expense = requireEditableExpense(input.expenseId, input.userId);
     db.expenses.delete(expense.id);
     db.deletedExpenses.set(expense.id, expense);
     return { ok: true };
   }),
 
   /** Undoes a delete, with the same people and amounts it had. */
-  restore: publicProcedure.input(z.object({ expenseId: z.string() })).mutation(({ input }) => {
+  restore: publicProcedure.input(z.object({ expenseId: z.string(), userId: z.string() })).mutation(({ input }) => {
     const expense = db.deletedExpenses.get(input.expenseId);
     if (!expense) throw notFound(`Expense ${input.expenseId} not found`);
     const group = db.groups.get(expense.groupId);
     if (!group) throw notFound(`Group ${expense.groupId} not found`);
     if (group.archivedAt) throw conflict("Can't change an expense in an archived group");
+    if (expense.paidByUserId !== input.userId) throw forbidden("Only the person who paid can change this expense");
     db.deletedExpenses.delete(expense.id);
     db.expenses.set(expense.id, expense);
     return expense;

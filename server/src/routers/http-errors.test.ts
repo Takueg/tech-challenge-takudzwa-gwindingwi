@@ -63,7 +63,7 @@ describe("errors over HTTP", () => {
   });
 
   it("returns 404 for an unknown expense", async () => {
-    const result = await post("expenses.delete", { expenseId: "missing" });
+    const result = await post("expenses.delete", { expenseId: "missing", userId: "anyone" });
     expect(result).toEqual({ status: 404, message: "Expense missing not found" });
   });
 

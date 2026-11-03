@@ -42,8 +42,8 @@ describe("stats.overview", () => {
     const edited = addExpense(group, alice, 1000);
     const deleted = addExpense(group, alice, 2000);
 
-    await caller.expenses.update({ expenseId: edited.id, description: "Edited", amountCents: 1500 });
-    await caller.expenses.delete({ expenseId: deleted.id });
+    await caller.expenses.update({ expenseId: edited.id, description: "Edited", amountCents: 1500, userId: alice.id });
+    await caller.expenses.delete({ expenseId: deleted.id, userId: alice.id });
 
     expect(await caller.stats.overview()).toMatchObject({ expenseCount: 1, totalCents: 1500 });
   });

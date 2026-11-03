@@ -112,11 +112,15 @@ export function ExpenseFormDialog({
         notify.success({
           title: "Expense Added",
           body: `“${created.description}” · ${formatCents(created.amountCents)}, paid by ${payer}.`,
-          onUndo: () =>
-            undo(() => trpcClient.expenses.delete.mutate({ expenseId: created.id }), {
-              title: "Expense Removed",
-              body: `“${created.description}” was taken out.`,
-            }),
+          // Only the payer can delete, so there's no undo when you record it for someone else.
+          onUndo:
+            created.paidByUserId === currentUserId
+              ? () =>
+                  undo(() => trpcClient.expenses.delete.mutate({ expenseId: created.id, userId: created.paidByUserId }), {
+                    title: "Expense Removed",
+                    body: `“${created.description}” was taken out.`,
+                  })
+              : undefined,
         });
       },
     })
@@ -132,15 +136,20 @@ export function ExpenseFormDialog({
         notify.success({
           title: "Changes Saved",
           body: `“${updated.description}” is now ${formatCents(updated.amountCents)}. Balances are updated.`,
-          onUndo: () =>
-            undo(() =>
-              trpcClient.expenses.update.mutate({
-                expenseId: before.id,
-                description: before.description,
-                amountCents: before.amountCents,
-                paidByUserId: before.paidByUserId,
-              })
-            ),
+          // Handing the expense to another payer also hands them the right to change it back.
+          onUndo:
+            updated.paidByUserId === currentUserId
+              ? () =>
+                  undo(() =>
+                    trpcClient.expenses.update.mutate({
+                      expenseId: before.id,
+                      description: before.description,
+                      amountCents: before.amountCents,
+                      paidByUserId: before.paidByUserId,
+                      userId: updated.paidByUserId,
+                    })
+                  )
+              : undefined,
         });
       },
     })
@@ -156,7 +165,7 @@ export function ExpenseFormDialog({
     setSummary(errorSummary(found, "continue"));
     if (hasErrors(found)) return;
     const fields = { description, amountCents: amountCents as number, paidByUserId: values.payerId };
-    if (expense) save.mutate({ expenseId: expense.id, ...fields });
+    if (expense) save.mutate({ expenseId: expense.id, userId: expense.paidByUserId, ...fields });
     else create.mutate({ groupId, ...fields });
   }
 
