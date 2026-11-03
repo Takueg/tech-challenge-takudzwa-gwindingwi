@@ -71,7 +71,7 @@ function TotalsHeader({
 function GroupCardSkeleton() {
   return (
     <div aria-hidden="true" className="app-skel-card">
-      <span className="flex items-start justify-between gap-3">
+      <span className="flex min-h-12 items-start justify-between gap-3">
         <span className="flex flex-col gap-2.5">
           <Skeleton line width={130} height={18} />
           <Skeleton line width={150} height={12} />
@@ -79,19 +79,13 @@ function GroupCardSkeleton() {
         <Skeleton round width={20} height={20} />
       </span>
       <span className="h-px bg-[var(--rule)]" />
-      <span className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.1fr)_minmax(0,1.2fr)] items-end gap-3">
-        <span className="flex flex-col gap-1.5">
-          <Skeleton line width={52} height={10} />
-          <Skeleton line width={24} />
-        </span>
-        <span className="flex flex-col gap-1.5">
-          <Skeleton line width={36} height={10} />
-          <Skeleton line width={76} />
-        </span>
-        <span className="flex flex-col items-end gap-1.5">
-          <Skeleton line width={60} height={10} />
-          <Skeleton line width={72} />
-        </span>
+      <span className="flex flex-col gap-2">
+        {[52, 36, 60].map((labelWidth, index) => (
+          <span key={labelWidth} className="flex h-5 items-center justify-between gap-3">
+            <Skeleton line width={labelWidth} height={10} />
+            <Skeleton line width={index === 0 ? 24 : 76} />
+          </span>
+        ))}
       </span>
     </div>
   );
@@ -104,10 +98,13 @@ function GroupCard({
 }: {
   group: RouterOutputs["groups"]["list"][number];
   memberText: string;
-  netCents: number;
+  /** Undefined when balances couldn't load, which must never read as settled. */
+  netCents?: number;
 }) {
-  const label = netCents > 0 ? "You’re Owed" : netCents < 0 ? "You Owe" : "All Settled";
-  const stat = "[font:600_16px/20px_var(--font-poppins)] text-strong";
+  const label =
+    netCents === undefined ? "Balance" : netCents > 0 ? "You’re Owed" : netCents < 0 ? "You Owe" : "All Settled";
+  const row = "flex items-baseline justify-between gap-3";
+  const stat = "whitespace-nowrap [font:600_16px/20px_var(--font-poppins)] text-strong";
   const caption = "[font:400_12px/16px_var(--font-poppins)] text-muted-foreground";
   return (
     <li>
@@ -123,19 +120,19 @@ function GroupCard({
           <Icon name="arrow_forward" size={20} />
         </span>
         <span className="h-px bg-[var(--rule)]" />
-        <span className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.1fr)_minmax(0,1.2fr)] items-end gap-3">
-          <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="flex flex-col gap-2">
+          <span className={row}>
             <span className={caption}>Expenses</span>
             <span className={stat}>{group.expenseCount}</span>
           </span>
-          <span className="flex min-w-0 flex-col gap-0.5">
+          <span className={row}>
             <span className={caption}>Total</span>
-            <span className={cn(stat, "whitespace-nowrap")}>{formatCents(group.totalCents)}</span>
+            <span className={stat}>{formatCents(group.totalCents)}</span>
           </span>
-          <span className="flex min-w-0 flex-col items-end gap-0.5">
+          <span className={row}>
             <span className={caption}>{label}</span>
-            <span className={cn(stat, "whitespace-nowrap", netCents < 0 && "text-accent-ink")}>
-              {netCents === 0 ? "Settled Up" : formatCents(netCents)}
+            <span className={cn(stat, netCents !== undefined && netCents < 0 && "text-accent-ink")}>
+              {netCents === undefined ? "-" : netCents === 0 ? "Settled Up" : formatCents(netCents)}
             </span>
           </span>
         </span>
