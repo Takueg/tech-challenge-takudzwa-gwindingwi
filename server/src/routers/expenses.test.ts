@@ -376,6 +376,15 @@ describe("expenses.search", () => {
 
     expect(await caller.expenses.search({ query: "dinner" })).toEqual([]);
   });
+
+  it("stops returning expenses from a deleted group", async () => {
+    const caller = testCaller();
+    addExpense(group, alice, 100, { description: "Dinner" });
+
+    await caller.groups.delete({ groupId: group.id });
+
+    expect(await caller.expenses.search({ query: "dinner" })).toEqual([]);
+  });
 });
 
 describe("expenses.previewSplit", () => {

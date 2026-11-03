@@ -55,7 +55,7 @@ export const db = {
   groups: new Map<string, Group>(),
   expenses: new Map<string, Expense>(),
   settlements: new Map<string, Settlement>(),
-  /** Denormalized per-group expense list, kept in sync by the expenses router. */
+  /** Denormalized per-group expense list, kept in sync by `createExpense`, `expenses.delete` and `groups.delete`. */
   groupExpenseCache: new Map<string, Expense[]>(),
 };
 

@@ -37,6 +37,16 @@ describe("stats.overview", () => {
 
     expect(await caller.stats.overview()).toMatchObject({ expenseCount: 1, totalCents: 1500 });
   });
+
+  it("excludes the expenses of a deleted group", async () => {
+    const caller = testCaller();
+    addExpense(group, alice, 1000);
+    addExpense(other, bob, 2500);
+
+    await caller.groups.delete({ groupId: group.id });
+
+    expect(await caller.stats.overview()).toEqual({ groupCount: 1, expenseCount: 1, totalCents: 2500 });
+  });
 });
 
 describe("stats.recentExpenses", () => {
@@ -53,6 +63,15 @@ describe("stats.recentExpenses", () => {
 
   it("returns an empty list with no expenses", async () => {
     expect(await testCaller().stats.recentExpenses()).toEqual([]);
+  });
+
+  it("excludes the expenses of a deleted group", async () => {
+    const caller = testCaller();
+    addExpense(group, alice, 1000);
+
+    await caller.groups.delete({ groupId: group.id });
+
+    expect(await caller.stats.recentExpenses()).toEqual([]);
   });
 });
 
@@ -92,5 +111,14 @@ describe("stats.leaderboard", () => {
     await caller.users.update({ userId: alice.id, name: "Alicia", email: "alicia@test.com" });
 
     expect((await caller.stats.leaderboard())[0].userName).toBe("Alicia");
+  });
+
+  it("excludes the expenses of a deleted group", async () => {
+    const caller = testCaller();
+    addExpense(group, alice, 1000);
+
+    await caller.groups.delete({ groupId: group.id });
+
+    expect(await caller.stats.leaderboard()).toEqual([]);
   });
 });

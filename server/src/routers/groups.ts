@@ -87,6 +87,13 @@ export const groupsRouter = router({
     const group = db.groups.get(input.groupId);
     if (!group) throw new Error(`Group ${input.groupId} not found`);
     db.groups.delete(input.groupId);
+    db.groupExpenseCache.delete(input.groupId);
+    for (const expense of db.expenses.values()) {
+      if (expense.groupId === input.groupId) db.expenses.delete(expense.id);
+    }
+    for (const settlement of db.settlements.values()) {
+      if (settlement.groupId === input.groupId) db.settlements.delete(settlement.id);
+    }
     return { ok: true };
   }),
 

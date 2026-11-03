@@ -245,6 +245,17 @@ describe("groups.delete", () => {
     await expect(caller.groups.detail({ groupId: group.id })).rejects.toThrow(/not found/i);
   });
 
+  it("removes the group's expenses, settlements and cache entry", async () => {
+    addExpense(group, alice, 3000);
+    addSettlement(group, bob, alice, 1000);
+
+    await testCaller().groups.delete({ groupId: group.id });
+
+    expect(db.expenses.size).toBe(0);
+    expect(db.settlements.size).toBe(0);
+    expect(db.groupExpenseCache.has(group.id)).toBe(false);
+  });
+
   it("leaves other groups' data alone", async () => {
     const other = makeGroup("Other", [alice, bob]);
     const kept = addExpense(other, alice, 500);
