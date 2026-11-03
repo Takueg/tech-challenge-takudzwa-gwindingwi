@@ -23,7 +23,7 @@ import {
   type SortKey,
   type TableExpense,
 } from "@/lib/expense-table";
-import { formatCents, formatClock, formatShortDate } from "@/lib/format";
+import { formatCents, formatClock, formatIsoDate, formatShortDate } from "@/lib/format";
 import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
@@ -226,7 +226,7 @@ export function ExpensesTable({
       });
       return;
     }
-    const fileName = `${exportFileName}-${new Date().toISOString().slice(0, 10)}.csv`;
+    const fileName = `${exportFileName}-${formatIsoDate(new Date())}.csv`;
     try {
       downloadCsv(sorted, fileName);
       notify.success({

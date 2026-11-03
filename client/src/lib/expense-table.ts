@@ -1,5 +1,5 @@
 import { csvField } from "server/src/lib/csv.js";
-import { formatClock } from "./format";
+import { formatClock, formatIsoDate } from "./format";
 
 export type TableExpense = {
   id: string;
@@ -97,7 +97,7 @@ export function rowsToCsv(rows: ExpenseRow[]): string {
   const header = ["Date", "Time", "Expense", "Category", "Group", "Paid By", "Amount (EUR)", "Your Share (EUR)"];
   const lines = rows.map((row) =>
     [
-      csvField(row.createdAt.slice(0, 10)),
+      csvField(formatIsoDate(row.createdAt)),
       csvField(formatClock(row.createdAt)),
       csvField(row.description),
       csvField(row.category),

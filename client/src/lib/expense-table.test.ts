@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   ALL_CATEGORIES,
   ALL_GROUPS,
@@ -213,3 +213,19 @@ describe("slugify", () => {
     expect(slugify("Weekend Trip / 2026!")).toBe("weekend-trip-2026");
   });
 });
+
+describe("rowsToCsv dates", () => {
+  beforeAll(() => {
+    vi.stubEnv("TZ", "Europe/Berlin");
+  });
+  afterAll(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("uses the local date, so it matches the time beside it and the table", () => {
+    const lateAtNight = expense({ createdAt: "2026-03-04T23:30:00.000Z" });
+    const [, line] = rowsToCsv(toRows([lateAtNight], "alice")).split("\r\n");
+    expect(line.startsWith('"2026-03-05","00:30",')).toBe(true);
+  });
+});
+

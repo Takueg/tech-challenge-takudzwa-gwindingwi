@@ -7,6 +7,12 @@ export function formatCents(cents: number): string {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
+/** "2026-11-03" in the viewer's timezone, for file names and exports. */
+export function formatIsoDate(value: string | Date): string {
+  const date = new Date(value);
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 /** "Nov 3" */
 export function formatShortDate(iso: string): string {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(iso));
