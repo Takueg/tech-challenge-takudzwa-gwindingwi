@@ -1,4 +1,4 @@
-import { csvField } from "server/src/lib/csv.js";
+import { csvField } from "./csv";
 import { formatClock, formatIsoDate } from "./format";
 
 export type TableExpense = {
@@ -21,16 +21,15 @@ export type ExpenseRow = TableExpense & {
 };
 
 export type SortKey = "title" | "date" | "group" | "payer" | "amount" | "share";
-export type SortDirection = "asc" | "desc";
-export type ExpenseSort = { key: SortKey; direction: SortDirection };
+export type ExpenseSort = { key: SortKey; direction: "asc" | "desc" };
 
 export const ALL_GROUPS = "All Groups";
 export const ALL_CATEGORIES = "All Categories";
 export const CATEGORIES = ["Food", "Rent", "Lodging", "Travel", "Fun", "Other"];
-export const PAGE_SIZE = 10;
+const PAGE_SIZE = 10;
 export const DEFAULT_SORT: ExpenseSort = { key: "date", direction: "desc" };
 
-export type ExpenseFilters = { query: string; group: string; category: string };
+type ExpenseFilters = { query: string; group: string; category: string };
 
 export function toRows(expenses: TableExpense[], currentUserId: string | null): ExpenseRow[] {
   return expenses.map((expense) => {

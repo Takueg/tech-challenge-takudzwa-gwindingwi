@@ -3,7 +3,7 @@ import { Select as SelectPrimitive } from "radix-ui";
 import { cn } from "@/lib/utils";
 import { Icon } from "@/components/ui/icon";
 
-export type SelectOption = { value: string; label: string };
+type SelectOption = { value: string; label: string };
 
 /** 41px trigger with a light-green list. `inPanel` gives the list the white fill fields get inside panels. */
 function Select({

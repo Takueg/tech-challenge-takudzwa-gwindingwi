@@ -34,12 +34,6 @@ export const statsRouter = router({
     };
   }),
 
-  recentExpenses: publicProcedure.query(() => {
-    return listActiveExpenses()
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .slice(0, 5);
-  }),
-
   leaderboard: publicProcedure.query(() => {
     const totalsByUser = new Map<string, number>();
     for (const expense of listActiveExpenses()) {

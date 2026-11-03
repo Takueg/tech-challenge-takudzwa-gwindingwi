@@ -2,7 +2,7 @@ const MAX_CENTS = 10_000_000;
 const PLAIN = /^(\d+)(?:[.,](\d{1,2}))?$/;
 const GROUPED = /^(\d{1,3}(?:\.\d{3})+)(?:,(\d{1,2}))?$/;
 
-export type ParsedAmount = { cents: number; error?: undefined } | { cents?: undefined; error: string };
+type ParsedAmount = { cents: number; error?: undefined } | { cents?: undefined; error: string };
 
 /** Parses what someone typed ("12,50", "12.50", "1.234,50 €") into integer cents, or says what's wrong. */
 export function parseAmount(raw: string): ParsedAmount {

@@ -25,39 +25,6 @@ describe("users.list", () => {
   });
 });
 
-describe("users.create", () => {
-  it("stores a new user that can then be listed", async () => {
-    const caller = testCaller();
-    const created = await caller.users.create(validInput);
-
-    expect(created).toMatchObject({ name: "Dana", email: "dana@test.com", username: "dana" });
-    expect(db.users.has(created.id)).toBe(true);
-    expect((await caller.users.list()).map((u) => u.id)).toContain(created.id);
-  });
-
-  it("does not return the password in the response", async () => {
-    const created = await testCaller().users.create(validInput);
-    expect(created).not.toHaveProperty("password");
-  });
-
-  it("rejects a username that is already taken", async () => {
-    await expect(testCaller().users.create({ ...validInput, username: "alice" })).rejects.toThrow();
-  });
-
-  it.each([
-    ["an empty name", { name: "" }],
-    ["a whitespace-only name", { name: "   " }],
-    ["an invalid email", { email: "not-an-email" }],
-    ["an empty username", { username: "" }],
-    ["a whitespace-only username", { username: "   " }],
-    ["an empty password", { password: "" }],
-  ])("rejects %s", async (_label, override) => {
-    await expect(testCaller().users.create({ ...validInput, ...override })).rejects.toMatchObject({
-      code: "BAD_REQUEST",
-    });
-  });
-});
-
 describe("users.update", () => {
   it("updates name, email and bio", async () => {
     const updated = await testCaller().users.update({

@@ -5,7 +5,7 @@ import { db, nextId, type Settlement } from "../lib/db.js";
 import { badRequest, conflict, notFound } from "../lib/errors.js";
 import { amountCentsSchema } from "../lib/schemas.js";
 
-/** The most this payment can be, or an error if the two people have no debt to settle. */
+/** Throws unless the two people have a debt this payment fits within. */
 function requireSettleable(groupId: string, fromUserId: string, toUserId: string, amountCents: number): void {
   // Balances list every member plus any former member still owed or owing,
   // so a former member's debt can still be settled.

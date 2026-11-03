@@ -4,7 +4,6 @@ import { db, type Expense } from "../lib/db.js";
 import { detectExpenseCategory } from "../lib/category.js";
 import { computeEqualSplits, createExpense, createExpenseInput, listActiveExpenses } from "../lib/expense-service.js";
 import { amountCentsSchema, nonBlankStringSchema } from "../lib/schemas.js";
-import { computeNetBalances, simplifyDebts } from "../lib/balances.js";
 import { badRequest, conflict, notFound } from "../lib/errors.js";
 
 function requireEditableExpense(expenseId: string): Expense {
@@ -34,14 +33,6 @@ export const expensesRouter = router({
     .input(z.object({ description: nonBlankStringSchema }))
     .query(({ input }) => detectExpenseCategory(input.description)),
 
-  search: publicProcedure.input(z.object({ query: z.string() })).query(({ input }) => {
-    const needle = input.query.trim().toLowerCase();
-    if (!needle) return [];
-    return listActiveExpenses()
-      .filter((e) => e.description.toLowerCase().includes(needle))
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }),
-
   previewSplit: publicProcedure
     .input(z.object({ groupId: z.string(), amountCents: amountCentsSchema }))
     .query(({ input }) => {
@@ -50,37 +41,7 @@ export const expensesRouter = router({
       return computeEqualSplits(input.amountCents, group.memberIds);
     }),
 
-  previewBalances: publicProcedure
-    .input(z.object({ groupId: z.string(), amountCents: amountCentsSchema, paidByUserId: z.string() }))
-    .query(({ input }) => {
-      const group = db.groups.get(input.groupId);
-      if (!group) throw notFound(`Group ${input.groupId} not found`);
-      if (!group.memberIds.includes(input.paidByUserId)) {
-        throw badRequest("Payer must be a member of the group");
-      }
-
-      const net = new Map(computeNetBalances(input.groupId).map((b) => [b.userId, b.netCents]));
-      net.set(input.paidByUserId, (net.get(input.paidByUserId) ?? 0) + input.amountCents);
-      for (const split of computeEqualSplits(input.amountCents, group.memberIds)) {
-        net.set(split.userId, (net.get(split.userId) ?? 0) - split.amountCents);
-      }
-
-      const projectedBalances = Array.from(net.entries()).map(([userId, netCents]) => ({ userId, netCents }));
-      return {
-        balances: projectedBalances,
-        suggestedTransfers: simplifyDebts(projectedBalances),
-      };
-    }),
-
   create: publicProcedure.input(createExpenseInput).mutation(({ input }) => createExpense(input)),
-
-  uploadReceipt: publicProcedure
-    .input(z.object({ expenseId: z.string(), receiptUrl: z.string() }))
-    .mutation(({ input }) => {
-      const expense = requireEditableExpense(input.expenseId);
-      expense.receiptUrl = input.receiptUrl;
-      return expense;
-    }),
 
   update: publicProcedure
     .input(

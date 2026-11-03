@@ -82,8 +82,8 @@ describe("stats.overview", () => {
 describe("stats after archiving", () => {
   it("excludes the archived group's expenses everywhere, and restores them on unarchive", async () => {
     const caller = testCaller();
-    const archivedExpense = addExpense(group, alice, 1000);
-    const keptExpense = addExpense(other, bob, 2500);
+    addExpense(group, alice, 1000);
+    addExpense(other, bob, 2500);
     settleUp(group);
 
     await caller.groups.archive({ groupId: group.id });
@@ -94,7 +94,6 @@ describe("stats after archiving", () => {
       totalCents: 2500,
       categoryTotals: { Other: 2500 },
     });
-    expect((await caller.stats.recentExpenses()).map((e) => e.id)).toEqual([keptExpense.id]);
     expect((await caller.stats.leaderboard()).map((entry) => entry.userId)).toEqual([bob.id]);
 
     await caller.groups.unarchive({ groupId: group.id });
@@ -105,37 +104,7 @@ describe("stats after archiving", () => {
       totalCents: 3500,
       categoryTotals: { Other: 3500 },
     });
-    expect((await caller.stats.recentExpenses()).map((e) => e.id).sort()).toEqual(
-      [archivedExpense.id, keptExpense.id].sort()
-    );
     expect((await caller.stats.leaderboard()).map((entry) => entry.userId)).toEqual([bob.id, alice.id]);
-  });
-});
-
-describe("stats.recentExpenses", () => {
-  it("returns the five newest expenses, newest first", async () => {
-    const descriptions = ["one", "two", "three", "four", "five", "six", "seven"];
-    descriptions.forEach((description, i) => {
-      addExpense(group, alice, 100, { description, createdAt: `2026-01-0${i + 1}T00:00:00.000Z` });
-    });
-
-    const recent = await testCaller().stats.recentExpenses();
-
-    expect(recent.map((e) => e.description)).toEqual(["seven", "six", "five", "four", "three"]);
-  });
-
-  it("returns an empty list with no expenses", async () => {
-    expect(await testCaller().stats.recentExpenses()).toEqual([]);
-  });
-
-  it("excludes the expenses of a deleted group", async () => {
-    const caller = testCaller();
-    addExpense(group, alice, 1000);
-
-    settleUp(group);
-    await caller.groups.delete({ groupId: group.id });
-
-    expect(await caller.stats.recentExpenses()).toEqual([]);
   });
 });
 

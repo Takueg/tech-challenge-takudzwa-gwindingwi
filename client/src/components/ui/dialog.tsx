@@ -85,6 +85,4 @@ function DialogContent({
 
 const DialogTitle = DialogPrimitive.Title;
 const DialogDescription = DialogPrimitive.Description;
-const DialogClose = DialogPrimitive.Close;
-
-export { Dialog, DialogCard, DialogContent, DialogTitle, DialogDescription, DialogClose };
+export { Dialog, DialogCard, DialogContent, DialogTitle, DialogDescription };

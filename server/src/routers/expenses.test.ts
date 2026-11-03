@@ -321,71 +321,6 @@ describe("expenses.delete, effect on money", () => {
   });
 });
 
-describe("expenses.uploadReceipt", () => {
-  it("stores the receipt without touching the money", async () => {
-    const expense = addExpense(group, alice, 3000);
-
-    const updated = await testCaller().expenses.uploadReceipt({
-      expenseId: expense.id,
-      receiptUrl: "data:image/png;base64,AAA",
-    });
-
-    expect(updated.receiptUrl).toBe("data:image/png;base64,AAA");
-    expect(updated.amountCents).toBe(3000);
-  });
-
-  it("makes the receipt visible on the group's expense list", async () => {
-    const caller = testCaller();
-    const expense = addExpense(group, alice, 3000);
-
-    await caller.expenses.uploadReceipt({ expenseId: expense.id, receiptUrl: "data:image/png;base64,AAA" });
-
-    expect((await caller.groups.detail({ groupId: group.id })).expenses[0].receiptUrl).toBe("data:image/png;base64,AAA");
-  });
-
-  it("rejects an unknown expense", async () => {
-    await expect(testCaller().expenses.uploadReceipt({ expenseId: "missing", receiptUrl: "x" })).rejects.toThrow(
-      /not found/i
-    );
-  });
-});
-
-describe("expenses.search", () => {
-  it("matches descriptions ignoring case and surrounding spaces, newest first", async () => {
-    const older = addExpense(group, alice, 100, { description: "Team DINNER", createdAt: "2026-01-01T00:00:00.000Z" });
-    const newer = addExpense(group, alice, 100, { description: "dinner out", createdAt: "2026-02-01T00:00:00.000Z" });
-    addExpense(group, alice, 100, { description: "Taxi" });
-
-    const results = await testCaller().expenses.search({ query: "  Dinner " });
-
-    expect(results.map((e) => e.id)).toEqual([newer.id, older.id]);
-  });
-
-  it("returns nothing for a blank query", async () => {
-    addExpense(group, alice, 100);
-    expect(await testCaller().expenses.search({ query: "   " })).toEqual([]);
-  });
-
-  it("stops returning a deleted expense", async () => {
-    const caller = testCaller();
-    const expense = addExpense(group, alice, 100, { description: "Dinner" });
-
-    await caller.expenses.delete({ expenseId: expense.id });
-
-    expect(await caller.expenses.search({ query: "dinner" })).toEqual([]);
-  });
-
-  it("stops returning expenses from a deleted group", async () => {
-    const caller = testCaller();
-    addExpense(group, alice, 100, { description: "Dinner" });
-
-    settleUp(group);
-    await caller.groups.delete({ groupId: group.id });
-
-    expect(await caller.expenses.search({ query: "dinner" })).toEqual([]);
-  });
-});
-
 describe("expenses.previewSplit", () => {
   it.each([3000, 100, 101, 1])("matches the splits expenses.create produces for %i cents", async (amountCents) => {
     const caller = testCaller();
@@ -414,59 +349,6 @@ describe("expenses.previewSplit", () => {
   });
 });
 
-describe("expenses.previewBalances", () => {
-  it.each([3000, 100, 200, 101, 1])(
-    "matches the real balances after creating an expense of %i cents",
-    async (amountCents) => {
-      const caller = testCaller();
-      addExpense(group, bob, 1000);
-
-      const preview = await caller.expenses.previewBalances({
-        groupId: group.id,
-        amountCents,
-        paidByUserId: carol.id,
-      });
-      await caller.expenses.create(createInput({ amountCents, paidByUserId: carol.id }));
-      const detail = await caller.groups.detail({ groupId: group.id });
-
-      expect(sortedByUser(preview.balances)).toEqual(sortedByUser(detail.balances));
-      expect(preview.suggestedTransfers).toEqual(detail.suggestedTransfers);
-    }
-  );
-
-  it("nets to zero for an amount that doesn't divide evenly", async () => {
-    const preview = await testCaller().expenses.previewBalances({
-      groupId: group.id,
-      amountCents: 100,
-      paidByUserId: alice.id,
-    });
-
-    expect(sumNet(preview.balances)).toBe(0);
-  });
-
-  it("does not change anything", async () => {
-    const caller = testCaller();
-    addExpense(group, alice, 3000);
-    const before = await caller.groups.detail({ groupId: group.id });
-
-    await caller.expenses.previewBalances({ groupId: group.id, amountCents: 5000, paidByUserId: bob.id });
-
-    expect(await caller.groups.detail({ groupId: group.id })).toEqual(before);
-  });
-
-  it("rejects a payer who isn't a group member", async () => {
-    await expect(
-      testCaller().expenses.previewBalances({ groupId: group.id, amountCents: 100, paidByUserId: "not-a-member" })
-    ).rejects.toThrow();
-  });
-
-  it("rejects an unknown group", async () => {
-    await expect(
-      testCaller().expenses.previewBalances({ groupId: "missing", amountCents: 100, paidByUserId: alice.id })
-    ).rejects.toThrow(/not found/i);
-  });
-});
-
 describe("expenses in an archived group", () => {
   it("are left out of search until the group is unarchived", async () => {
     const caller = testCaller();
@@ -474,10 +356,10 @@ describe("expenses in an archived group", () => {
     settleUp(group);
 
     await caller.groups.archive({ groupId: group.id });
-    expect(await caller.expenses.search({ query: "dinner" })).toEqual([]);
+    expect(await caller.expenses.list({})).toEqual([]);
 
     await caller.groups.unarchive({ groupId: group.id });
-    expect((await caller.expenses.search({ query: "dinner" })).map((e) => e.id)).toEqual([expense.id]);
+    expect((await caller.expenses.list({})).map((e) => e.id)).toEqual([expense.id]);
   });
 
   it("can't be edited, deleted or given a receipt", async () => {
@@ -490,10 +372,8 @@ describe("expenses in an archived group", () => {
       caller.expenses.update({ expenseId: expense.id, description: "Edit", amountCents: 100 })
     ).rejects.toThrow(/archived/i);
     await expect(caller.expenses.delete({ expenseId: expense.id })).rejects.toThrow(/archived/i);
-    await expect(caller.expenses.uploadReceipt({ expenseId: expense.id, receiptUrl: "x" })).rejects.toThrow(/archived/i);
 
     expect(db.expenses.get(expense.id)).toMatchObject({ description: "Dinner", amountCents: 3000 });
-    expect(db.expenses.get(expense.id)?.receiptUrl).toBeUndefined();
   });
 
   it("can be edited again once unarchived", async () => {
