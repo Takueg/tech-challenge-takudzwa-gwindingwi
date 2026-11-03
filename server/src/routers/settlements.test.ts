@@ -73,6 +73,50 @@ describe("settlements.create", () => {
     ).rejects.toThrow(/not found/i);
   });
 
+  it("lets a former member settle a balance they still carry", async () => {
+    const caller = testCaller();
+    const expense = addExpense(group, alice, 3000);
+    await caller.settlements.create({ groupId: group.id, fromUserId: carol.id, toUserId: alice.id, amountCents: 1000 });
+    await caller.groups.removeMember({ groupId: group.id, userId: carol.id });
+    await caller.expenses.update({ expenseId: expense.id, description: expense.description, amountCents: 6000 });
+
+    await caller.settlements.create({ groupId: group.id, fromUserId: carol.id, toUserId: alice.id, amountCents: 1000 });
+
+    const { balances } = await caller.groups.detail({ groupId: group.id });
+    expect(netOf(balances, carol)).toBeUndefined();
+    expect(sumNet(balances)).toBe(0);
+  });
+
+  it("rejects paying yourself", async () => {
+    await expect(
+      testCaller().settlements.create({ groupId: group.id, fromUserId: bob.id, toUserId: bob.id, amountCents: 100 })
+    ).rejects.toThrow();
+  });
+
+  it("rejects a payer outside the group", async () => {
+    const outsider = makeUser("Outsider");
+    await expect(
+      testCaller().settlements.create({
+        groupId: group.id,
+        fromUserId: outsider.id,
+        toUserId: alice.id,
+        amountCents: 100,
+      })
+    ).rejects.toThrow();
+  });
+
+  it("rejects a receiver outside the group", async () => {
+    const outsider = makeUser("Outsider");
+    await expect(
+      testCaller().settlements.create({
+        groupId: group.id,
+        fromUserId: alice.id,
+        toUserId: outsider.id,
+        amountCents: 100,
+      })
+    ).rejects.toThrow();
+  });
+
   it.each([
     ["zero", 0],
     ["negative", -100],

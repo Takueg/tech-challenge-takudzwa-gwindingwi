@@ -2,6 +2,7 @@ import { z } from "zod";
 import { router, publicProcedure } from "../trpc.js";
 import { db, nextId, type Group } from "../lib/db.js";
 import { computeNetBalances, simplifyDebts } from "../lib/balances.js";
+import { nonBlankStringSchema } from "../lib/schemas.js";
 
 export const groupsRouter = router({
   list: publicProcedure.query(() => {
@@ -36,15 +37,20 @@ export const groupsRouter = router({
   create: publicProcedure
     .input(
       z.object({
-        name: z.string().min(1),
+        name: nonBlankStringSchema,
         memberIds: z.array(z.string()).min(1),
       })
     )
     .mutation(({ input }) => {
+      const memberIds = [...new Set(input.memberIds)];
+      for (const userId of memberIds) {
+        if (!db.users.has(userId)) throw new Error(`User ${userId} not found`);
+      }
+
       const group: Group = {
         id: nextId("group"),
         name: input.name,
-        memberIds: input.memberIds,
+        memberIds,
         createdAt: new Date().toISOString(),
       };
       db.groups.set(group.id, group);
@@ -57,6 +63,7 @@ export const groupsRouter = router({
     .mutation(({ input }) => {
       const group = db.groups.get(input.groupId);
       if (!group) throw new Error(`Group ${input.groupId} not found`);
+      if (!db.users.has(input.userId)) throw new Error(`User ${input.userId} not found`);
       if (!group.memberIds.includes(input.userId)) {
         group.memberIds.push(input.userId);
       }
@@ -68,6 +75,10 @@ export const groupsRouter = router({
     .mutation(({ input }) => {
       const group = db.groups.get(input.groupId);
       if (!group) throw new Error(`Group ${input.groupId} not found`);
+      const balance = computeNetBalances(group.id).find((b) => b.userId === input.userId);
+      if (balance && balance.netCents !== 0) {
+        throw new Error("This member still has an outstanding balance. Settle up before removing them.");
+      }
       group.memberIds = group.memberIds.filter((id) => id !== input.userId);
       return group;
     }),

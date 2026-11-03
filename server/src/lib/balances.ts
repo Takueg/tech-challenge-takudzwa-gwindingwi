@@ -32,7 +32,10 @@ export function computeNetBalances(groupId: string): NetBalance[] {
     net.set(settlement.toUserId, (net.get(settlement.toUserId) ?? 0) - settlement.amountCents);
   }
 
-  return Array.from(net.entries()).map(([userId, netCents]) => ({ userId, netCents }));
+  // A settled former member has nothing left to show. Anyone else stays listed.
+  return Array.from(net.entries())
+    .filter(([userId, netCents]) => netCents !== 0 || group.memberIds.includes(userId))
+    .map(([userId, netCents]) => ({ userId, netCents }));
 }
 
 /**

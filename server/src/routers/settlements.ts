@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../trpc.js";
+import { computeNetBalances } from "../lib/balances.js";
 import { db, nextId, type Settlement } from "../lib/db.js";
+import { amountCentsSchema } from "../lib/schemas.js";
 
 export const settlementsRouter = router({
   create: publicProcedure
@@ -9,12 +11,22 @@ export const settlementsRouter = router({
         groupId: z.string(),
         fromUserId: z.string(),
         toUserId: z.string(),
-        amountCents: z.number().int().positive(),
+        amountCents: amountCentsSchema,
       })
     )
     .mutation(({ input }) => {
       const group = db.groups.get(input.groupId);
       if (!group) throw new Error(`Group ${input.groupId} not found`);
+      if (input.fromUserId === input.toUserId) throw new Error("Payer and receiver must be different people");
+
+      // Balances list every member plus any former member still owed or owing,
+      // so a former member's debt can still be settled.
+      const balances = computeNetBalances(input.groupId);
+      for (const userId of [input.fromUserId, input.toUserId]) {
+        if (!balances.some((b) => b.userId === userId)) {
+          throw new Error("Payer and receiver must be part of the group");
+        }
+      }
 
       const settlement: Settlement = {
         id: nextId("settlement"),

@@ -95,10 +95,40 @@ describe("groups.create", () => {
     });
   });
 
+  it("rejects a whitespace-only name", async () => {
+    await expect(testCaller().groups.create({ name: "   ", memberIds: [alice.id] })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+  });
+
   it("rejects an empty member list", async () => {
     await expect(testCaller().groups.create({ name: "New", memberIds: [] })).rejects.toMatchObject({
       code: "BAD_REQUEST",
     });
+  });
+
+  it("rejects member ids that don't belong to a user", async () => {
+    await expect(testCaller().groups.create({ name: "New", memberIds: [alice.id, "ghost"] })).rejects.toThrow();
+  });
+
+  it("never charges a member twice when the member list has duplicates", async () => {
+    const caller = testCaller();
+
+    // Rejecting the input and de-duplicating it are both fine. Double-charging is not.
+    const created = await caller.groups
+      .create({ name: "New", memberIds: [alice.id, alice.id, bob.id] })
+      .catch(() => undefined);
+    if (!created) return;
+
+    const expense = await caller.quickAdd.create({
+      groupId: created.id,
+      description: "Dinner",
+      amountCents: 3000,
+      paidByUserId: bob.id,
+    });
+
+    expect(new Set(expense.splits.map((s) => s.userId)).size).toBe(expense.splits.length);
+    expect(expense.splits.find((s) => s.userId === alice.id)?.amountCents).toBe(1500);
   });
 });
 
@@ -126,6 +156,10 @@ describe("groups.addMember", () => {
     expect(updated.memberIds).toEqual([alice.id, bob.id, carol.id]);
   });
 
+  it("rejects a user id that doesn't exist", async () => {
+    await expect(testCaller().groups.addMember({ groupId: group.id, userId: "ghost" })).rejects.toThrow();
+  });
+
   it("rejects an unknown group", async () => {
     await expect(testCaller().groups.addMember({ groupId: "missing", userId: alice.id })).rejects.toThrow(/not found/i);
   });
@@ -147,6 +181,30 @@ describe("groups.removeMember", () => {
     expect((await caller.groups.detail({ groupId: group.id })).members.map((m) => m.id)).toEqual([alice.id, bob.id]);
   });
 
+  it("refuses to remove a member with an outstanding balance", async () => {
+    const caller = testCaller();
+    addExpense(group, alice, 3000);
+
+    await expect(caller.groups.removeMember({ groupId: group.id, userId: carol.id })).rejects.toThrow(
+      /outstanding balance/i
+    );
+
+    expect((await caller.groups.detail({ groupId: group.id })).members.map((m) => m.id)).toContain(carol.id);
+  });
+
+  it("removes a settled member and drops them from the balances", async () => {
+    const caller = testCaller();
+    addExpense(group, alice, 3000);
+    addSettlement(group, carol, alice, 1000);
+
+    await caller.groups.removeMember({ groupId: group.id, userId: carol.id });
+
+    const detail = await caller.groups.detail({ groupId: group.id });
+    expect(detail.members.map((m) => m.id)).toEqual([alice.id, bob.id]);
+    expect(detail.balances.map((b) => b.userId)).toEqual([alice.id, bob.id]);
+    expect(sumNet(detail.balances)).toBe(0);
+  });
+
   it("does not lose money when the removed member has an outstanding balance", async () => {
     const caller = testCaller();
     addExpense(group, alice, 3000);
@@ -157,6 +215,17 @@ describe("groups.removeMember", () => {
     const detail = await caller.groups.detail({ groupId: group.id });
     expect(sumNet(detail.balances)).toBe(0);
     expect(netOf(detail.balances, carol)).toBe(-1000);
+  });
+
+  it("keeps anyone with a balance identifiable, since the UI resolves names from members", async () => {
+    const caller = testCaller();
+    addExpense(group, alice, 3000);
+
+    await caller.groups.removeMember({ groupId: group.id, userId: carol.id }).catch(() => undefined);
+
+    const detail = await caller.groups.detail({ groupId: group.id });
+    const memberIds = detail.members.map((m) => m.id);
+    for (const balance of detail.balances) expect(memberIds).toContain(balance.userId);
   });
 
   it("rejects an unknown group", async () => {
