@@ -30,7 +30,7 @@ export type Expense = {
   amountCents: number;
   currency: "EUR";
   paidByUserId: string;
-  /** Snapshot of the payer's name at creation time — not kept in sync if they rename themselves later. */
+  /** Denormalized for the CSV export. `users.update` keeps it in sync when the payer renames themselves. */
   paidByUserName: string;
   splits: ExpenseSplit[];
   category: string;

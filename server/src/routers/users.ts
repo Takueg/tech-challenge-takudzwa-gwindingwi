@@ -43,6 +43,9 @@ export const usersRouter = router({
       user.name = input.name;
       user.email = input.email;
       user.bio = input.bio;
+      for (const expense of db.expenses.values()) {
+        if (expense.paidByUserId === user.id) expense.paidByUserName = user.name;
+      }
       return user;
     }),
 

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db, type User } from "../lib/db.js";
 import { testCaller } from "../test-utils/caller.js";
-import { makeUser, resetDb } from "../test-utils/fixtures.js";
+import { addExpense, makeGroup, makeUser, resetDb } from "../test-utils/fixtures.js";
 
 const validInput = { name: "Dana", email: "dana@test.com", username: "dana", password: "dana-secret" };
 
@@ -53,6 +53,18 @@ describe("users.update", () => {
 
     expect(updated).toMatchObject({ name: "Alicia", email: "alicia@test.com", bio: "Hello" });
     expect(db.users.get(alice.id)?.name).toBe("Alicia");
+  });
+
+  it("renames the user on expenses they paid for, and nobody else's", async () => {
+    const bob = makeUser("Bob");
+    const group = makeGroup("Trip", [alice, bob]);
+    const paidByAlice = addExpense(group, alice, 1000);
+    const paidByBob = addExpense(group, bob, 1000);
+
+    await testCaller().users.update({ userId: alice.id, name: "Alicia", email: "alicia@test.com" });
+
+    expect(db.expenses.get(paidByAlice.id)?.paidByUserName).toBe("Alicia");
+    expect(db.expenses.get(paidByBob.id)?.paidByUserName).toBe("Bob");
   });
 
   it("rejects an unknown user", async () => {
