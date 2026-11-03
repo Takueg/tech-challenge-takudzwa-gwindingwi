@@ -704,23 +704,6 @@
     font-weight: 400;
   }
 
-  /* LoadingStatus */
-  .swl-load {
-    width: 104px;
-    height: 104px;
-    box-sizing: border-box;
-    border: 6px solid var(--honeydew);
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--honeydew);
-  }
-  .swl-load svg {
-    width: 46px;
-    height: 46px;
-  }
-
   /* Avatar */
   .swl-avatar {
     position: relative;
