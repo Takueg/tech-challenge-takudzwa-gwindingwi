@@ -36,6 +36,9 @@ export function GroupDetailPage() {
         invalidateExpenseData();
         navigate("/");
       },
+      onError: (error) => {
+        toast.error(error.message);
+      },
     })
   );
 

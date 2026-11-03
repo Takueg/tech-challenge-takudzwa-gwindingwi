@@ -2,7 +2,7 @@ import { z } from "zod";
 import { router, publicProcedure } from "../trpc.js";
 import { db, nextId, toPublicUser, type Group } from "../lib/db.js";
 import { computeNetBalances, simplifyDebts } from "../lib/balances.js";
-import { archiveGroup, unarchiveGroup } from "../lib/group-service.js";
+import { archiveGroup, deleteGroup, unarchiveGroup } from "../lib/group-service.js";
 import { nonBlankStringSchema } from "../lib/schemas.js";
 
 function listGroupsWithTotals(includeGroup: (group: Group) => boolean) {
@@ -72,6 +72,8 @@ export const groupsRouter = router({
     .mutation(({ input }) => {
       const group = db.groups.get(input.groupId);
       if (!group) throw new Error(`Group ${input.groupId} not found`);
+      if (!group.memberIds.includes(input.userId)) throw new Error("That person isn't a member of this group");
+      if (group.memberIds.length === 1) throw new Error("Can't remove the last member of a group");
       const balance = computeNetBalances(group.id).find((b) => b.userId === input.userId);
       if (balance && balance.netCents !== 0) {
         throw new Error("This member still has an outstanding balance. Settle up before removing them.");
@@ -81,16 +83,7 @@ export const groupsRouter = router({
     }),
 
   delete: publicProcedure.input(z.object({ groupId: z.string() })).mutation(({ input }) => {
-    const group = db.groups.get(input.groupId);
-    if (!group) throw new Error(`Group ${input.groupId} not found`);
-    db.groups.delete(input.groupId);
-    db.groupExpenseCache.delete(input.groupId);
-    for (const expense of db.expenses.values()) {
-      if (expense.groupId === input.groupId) db.expenses.delete(expense.id);
-    }
-    for (const settlement of db.settlements.values()) {
-      if (settlement.groupId === input.groupId) db.settlements.delete(settlement.id);
-    }
+    deleteGroup(input.groupId);
     return { ok: true };
   }),
 

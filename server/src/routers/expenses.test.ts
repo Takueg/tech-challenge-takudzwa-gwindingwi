@@ -381,6 +381,7 @@ describe("expenses.search", () => {
     const caller = testCaller();
     addExpense(group, alice, 100, { description: "Dinner" });
 
+    settleUp(group);
     await caller.groups.delete({ groupId: group.id });
 
     expect(await caller.expenses.search({ query: "dinner" })).toEqual([]);

@@ -43,6 +43,7 @@ describe("stats.overview", () => {
     addExpense(group, alice, 1000);
     addExpense(other, bob, 2500);
 
+    settleUp(group);
     await caller.groups.delete({ groupId: group.id });
 
     expect(await caller.stats.overview()).toEqual({ groupCount: 1, expenseCount: 1, totalCents: 2500 });
@@ -106,6 +107,7 @@ describe("stats.recentExpenses", () => {
     const caller = testCaller();
     addExpense(group, alice, 1000);
 
+    settleUp(group);
     await caller.groups.delete({ groupId: group.id });
 
     expect(await caller.stats.recentExpenses()).toEqual([]);
@@ -154,6 +156,7 @@ describe("stats.leaderboard", () => {
     const caller = testCaller();
     addExpense(group, alice, 1000);
 
+    settleUp(group);
     await caller.groups.delete({ groupId: group.id });
 
     expect(await caller.stats.leaderboard()).toEqual([]);

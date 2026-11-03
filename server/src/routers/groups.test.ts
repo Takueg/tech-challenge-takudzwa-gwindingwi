@@ -293,6 +293,21 @@ describe("groups.removeMember", () => {
     expect(sumNet(detail.balances)).toBe(0);
   });
 
+  it("refuses to remove the last member", async () => {
+    const solo = makeGroup("Solo", [alice]);
+
+    await expect(testCaller().groups.removeMember({ groupId: solo.id, userId: alice.id })).rejects.toThrow(/last member/i);
+
+    expect(db.groups.get(solo.id)?.memberIds).toEqual([alice.id]);
+  });
+
+  it("rejects removing someone who isn't a member", async () => {
+    const outsider = makeUser("Outsider");
+    await expect(testCaller().groups.removeMember({ groupId: group.id, userId: outsider.id })).rejects.toThrow(
+      /isn't a member/i
+    );
+  });
+
   it("does not lose money when the removed member has an outstanding balance", async () => {
     const caller = testCaller();
     addExpense(group, alice, 3000);
@@ -335,13 +350,25 @@ describe("groups.delete", () => {
 
   it("removes the group's expenses, settlements and cache entry", async () => {
     addExpense(group, alice, 3000);
-    addSettlement(group, bob, alice, 1000);
+    settleUp(group);
 
     await testCaller().groups.delete({ groupId: group.id });
 
     expect(db.expenses.size).toBe(0);
     expect(db.settlements.size).toBe(0);
     expect(db.groupExpenseCache.has(group.id)).toBe(false);
+  });
+
+  it("refuses to delete while anyone still owes money, and keeps the ledger", async () => {
+    const caller = testCaller();
+    const expense = addExpense(group, alice, 3000);
+    addSettlement(group, bob, alice, 500);
+
+    await expect(caller.groups.delete({ groupId: group.id })).rejects.toThrow(/settle/i);
+
+    expect(db.groups.has(group.id)).toBe(true);
+    expect(db.expenses.has(expense.id)).toBe(true);
+    expect(db.settlements.size).toBe(1);
   });
 
   it("leaves other groups' data alone", async () => {
