@@ -19,7 +19,13 @@ import { errorSummary, hasErrors, revalidate, validateDescription, type FieldErr
 type Values = { description: string; amount: string; payerId: string };
 type Errors = FieldErrors<keyof Values>;
 
-type EditableExpense = { id: string; description: string; amountCents: number; paidByUserId: string };
+type EditableExpense = {
+  id: string;
+  description: string;
+  amountCents: number;
+  paidByUserId: string;
+  splits: { userId: string }[];
+};
 type Person = { id: string; name: string };
 
 function validate(values: Values): Errors {
@@ -47,16 +53,19 @@ export function ExpenseFormDialog({
   groupId,
   groupName,
   members,
+  people,
   expense,
   onClose,
-  onSaved,
+  onAdded,
 }: {
   groupId: string;
   groupName: string;
   members: Person[];
+  /** Members plus former members, who can still be on an existing expense. */
+  people: Person[];
   expense?: EditableExpense;
   onClose: () => void;
-  onSaved: (expenseId: string) => void;
+  onAdded: (expenseId: string) => void;
 }) {
   const trpc = useTRPC();
   const invalidate = useInvalidateExpenseData();
@@ -91,13 +100,13 @@ export function ExpenseFormDialog({
 
   const amountCents = parseAmount(values.amount).cents;
   const { data: splits } = useQuery({
-    ...trpc.expenses.previewSplit.queryOptions({ groupId, amountCents: amountCents ?? 1 }),
+    ...trpc.expenses.previewSplit.queryOptions({ groupId, amountCents: amountCents ?? 1, expenseId: expense?.id }),
     enabled: Boolean(amountCents),
     placeholderData: keepPreviousData,
   });
   const nameOf = (userId: string) => {
     if (userId === currentUserId) return "You";
-    return members.find((member) => member.id === userId)?.name ?? "Former member";
+    return people.find((person) => person.id === userId)?.name ?? "Former member";
   };
 
   const onFailure = { meta: { handlesError: true } };
@@ -106,7 +115,7 @@ export function ExpenseFormDialog({
       ...onFailure,
       onSuccess: (created) => {
         invalidate();
-        onSaved(created.id);
+        onAdded(created.id);
         onClose();
         const payer = created.paidByUserId === currentUserId ? "you" : created.paidByUserName;
         notify.success({
@@ -130,7 +139,6 @@ export function ExpenseFormDialog({
       ...onFailure,
       onSuccess: (updated) => {
         invalidate();
-        onSaved(updated.id);
         onClose();
         const before = expense as EditableExpense;
         notify.success({
@@ -169,7 +177,15 @@ export function ExpenseFormDialog({
     else create.mutate({ groupId, ...fields });
   }
 
-  const payerOptions = members.map((member) => ({
+  const payers = expense
+    ? people.filter(
+        (person) =>
+          members.some((member) => member.id === person.id) ||
+          person.id === expense.paidByUserId ||
+          expense.splits.some((split) => split.userId === person.id)
+      )
+    : members;
+  const payerOptions = payers.map((member) => ({
     value: member.id,
     label: member.id === currentUserId ? `${member.name} (You)` : member.name,
   }));
@@ -180,7 +196,7 @@ export function ExpenseFormDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         title={editing ? "Edit Expense" : "Add Expense"}
-        subtitle={`${groupName} · split equally between ${members.length} members`}
+        subtitle={`${groupName} · split equally between ${expense?.splits.length ?? members.length} members`}
       >
         <form noValidate onSubmit={submit} className="flex flex-col gap-[18px]">
           {failure && (

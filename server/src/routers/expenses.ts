@@ -36,11 +36,17 @@ export const expensesRouter = router({
     .query(({ input }) => detectExpenseCategory(input.description)),
 
   previewSplit: publicProcedure
-    .input(z.object({ groupId: z.string(), amountCents: amountCentsSchema }))
+    .input(z.object({ groupId: z.string(), amountCents: amountCentsSchema, expenseId: z.string().optional() }))
     .query(({ input }) => {
       const group = db.groups.get(input.groupId);
       if (!group) throw notFound(`Group ${input.groupId} not found`);
-      return computeEqualSplits(input.amountCents, group.memberIds);
+      if (!input.expenseId) return computeEqualSplits(input.amountCents, group.memberIds);
+      const expense = db.expenses.get(input.expenseId);
+      if (expense?.groupId !== group.id) throw notFound(`Expense ${input.expenseId} not found`);
+      return computeEqualSplits(
+        input.amountCents,
+        expense.splits.map((s) => s.userId)
+      );
     }),
 
   create: publicProcedure.input(createExpenseInput).mutation(({ input }) => createExpense(input)),

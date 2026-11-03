@@ -729,9 +729,10 @@ function GroupDetail({ groupId }: { groupId: string }) {
           groupId={groupId}
           groupName={groupName}
           members={data.members}
+          people={everyone}
           expense={editing}
           onClose={() => setFormOpen(false)}
-          onSaved={(expenseId) => {
+          onAdded={(expenseId) => {
             markNewExpense(expenseId);
             setTab(TABS[0]);
           }}

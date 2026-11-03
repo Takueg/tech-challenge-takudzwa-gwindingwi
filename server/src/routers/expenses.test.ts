@@ -563,3 +563,36 @@ describe("expenses.restore", () => {
     await expect(caller.expenses.restore({ expenseId: expense.id, userId: alice.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });
+
+describe("expenses.previewSplit for an existing expense", () => {
+  it("splits across the people on the expense, not today's members", async () => {
+    const caller = testCaller();
+    const expense = addExpense(group, alice, 3000);
+    const dave = makeUser("Dave");
+    group.memberIds.push(dave.id);
+
+    const preview = await caller.expenses.previewSplit({ groupId: group.id, amountCents: 4000, expenseId: expense.id });
+    const saved = await caller.expenses.update({ expenseId: expense.id, description: "x", amountCents: 4000, userId: alice.id });
+
+    expect(preview).toEqual(saved.splits);
+    expect(preview.map((s) => s.userId)).not.toContain(dave.id);
+  });
+
+  it("still splits across today's members without an expense", async () => {
+    const dave = makeUser("Dave");
+    group.memberIds.push(dave.id);
+
+    const preview = await testCaller().expenses.previewSplit({ groupId: group.id, amountCents: 4000 });
+    expect(preview.map((s) => s.userId)).toContain(dave.id);
+  });
+
+  it("rejects an expense from another group", async () => {
+    const other = makeGroup("Other", [alice, bob]);
+    const expense = addExpense(other, alice, 3000);
+
+    await expect(
+      testCaller().expenses.previewSplit({ groupId: group.id, amountCents: 4000, expenseId: expense.id })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
