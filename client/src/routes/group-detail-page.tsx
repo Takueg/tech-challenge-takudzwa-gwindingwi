@@ -8,7 +8,7 @@ import { IconTile } from "@/components/app/category-tile";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { ExpenseFormDialog } from "@/components/app/expense-form-dialog";
 import { ExpensesTable } from "@/components/app/expenses-table";
-import { Breadcrumb, HeaderActions, PageLayout } from "@/components/app/page-layout";
+import { HeaderActions, PageLayout } from "@/components/app/page-layout";
 import { Panel } from "@/components/app/panel";
 import { SpendingPanels } from "@/components/app/spending-panels";
 import { ErrorState } from "@/components/app/states";
@@ -531,10 +531,7 @@ function GroupDetail({ groupId }: { groupId: string }) {
 
   const header = (
     <div className="flex flex-col gap-[22px]">
-      <div className="flex min-h-12 flex-wrap items-center justify-between gap-x-6 gap-y-4">
-        <Breadcrumb current={groupName || "Group"} />
-        <HeaderActions className="flex-[0_1_560px]" />
-      </div>
+      <HeaderActions />
       {!deletedName && !detail.isError && (
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div className="flex min-w-0 flex-col gap-3">

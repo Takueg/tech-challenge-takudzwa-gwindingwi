@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DropdownMenu } from "radix-ui";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAppDialogs } from "@/components/app/app-dialogs";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -79,26 +79,6 @@ export function HeaderActions({ className }: { className?: string }) {
       </button>
       <AccountMenu />
     </div>
-  );
-}
-
-export function Breadcrumb({ current }: { current: string }) {
-  return (
-    <nav aria-label="Breadcrumb">
-      <ol className="m-0 flex list-none items-center gap-2 p-0 [font:500_14px/1_var(--font-poppins)]">
-        <li>
-          <Link to="/" className="text-on-screen no-underline">
-            Dashboard
-          </Link>
-        </li>
-        <li aria-hidden="true" className="flex">
-          <Icon name="chevron_right" size={14} />
-        </li>
-        <li aria-current="page" className="text-honeydew">
-          {current}
-        </li>
-      </ol>
-    </nav>
   );
 }
 
