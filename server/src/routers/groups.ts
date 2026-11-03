@@ -1,0 +1,111 @@
+import { z } from "zod";
+import { router, publicProcedure } from "../trpc.js";
+import { db, nextId, type Group } from "../lib/db.js";
+import { computeNetBalances, simplifyDebts } from "../lib/balances.js";
+
+export const groupsRouter = router({
+  list: publicProcedure.query(() => {
+    return Array.from(db.groups.values())
+      .filter((group) => !group.archivedAt)
+      .map((group) => {
+        let expenseCount = 0;
+        let totalCents = 0;
+        for (const expense of db.expenses.values()) {
+          if (expense.groupId !== group.id) continue;
+          expenseCount += 1;
+          totalCents += expense.amountCents;
+        }
+        return { ...group, expenseCount, totalCents };
+      });
+  }),
+
+  archive: publicProcedure.input(z.object({ groupId: z.string() })).mutation(({ input }) => {
+    const group = db.groups.get(input.groupId);
+    if (!group) throw new Error(`Group ${input.groupId} not found`);
+    group.archivedAt = new Date().toISOString();
+    return group;
+  }),
+
+  unarchive: publicProcedure.input(z.object({ groupId: z.string() })).mutation(({ input }) => {
+    const group = db.groups.get(input.groupId);
+    if (!group) throw new Error(`Group ${input.groupId} not found`);
+    group.archivedAt = undefined;
+    return group;
+  }),
+
+  create: publicProcedure
+    .input(
+      z.object({
+        name: z.string().min(1),
+        memberIds: z.array(z.string()).min(1),
+      })
+    )
+    .mutation(({ input }) => {
+      const group: Group = {
+        id: nextId("group"),
+        name: input.name,
+        memberIds: input.memberIds,
+        createdAt: new Date().toISOString(),
+      };
+      db.groups.set(group.id, group);
+      db.groupExpenseCache.set(group.id, []);
+      return group;
+    }),
+
+  addMember: publicProcedure
+    .input(z.object({ groupId: z.string(), userId: z.string() }))
+    .mutation(({ input }) => {
+      const group = db.groups.get(input.groupId);
+      if (!group) throw new Error(`Group ${input.groupId} not found`);
+      if (!group.memberIds.includes(input.userId)) {
+        group.memberIds.push(input.userId);
+      }
+      return group;
+    }),
+
+  removeMember: publicProcedure
+    .input(z.object({ groupId: z.string(), userId: z.string() }))
+    .mutation(({ input }) => {
+      const group = db.groups.get(input.groupId);
+      if (!group) throw new Error(`Group ${input.groupId} not found`);
+      group.memberIds = group.memberIds.filter((id) => id !== input.userId);
+      return group;
+    }),
+
+  delete: publicProcedure.input(z.object({ groupId: z.string() })).mutation(({ input }) => {
+    const group = db.groups.get(input.groupId);
+    if (!group) throw new Error(`Group ${input.groupId} not found`);
+    db.groups.delete(input.groupId);
+    return { ok: true };
+  }),
+
+  detail: publicProcedure.input(z.object({ groupId: z.string() })).query(({ input }) => {
+    const group = db.groups.get(input.groupId);
+    if (!group) throw new Error(`Group ${input.groupId} not found`);
+
+    const members = group.memberIds
+      .map((id) => db.users.get(id))
+      .filter((u): u is NonNullable<typeof u> => Boolean(u));
+
+    // Read from the per-group cache rather than scanning every expense.
+    const expenses = (db.groupExpenseCache.get(group.id) ?? [])
+      .slice()
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+    const settlements = Array.from(db.settlements.values())
+      .filter((s) => s.groupId === group.id)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+    // Category totals, computed straight from the source of truth (not the cache above).
+    const categoryTotals: Record<string, number> = {};
+    for (const expense of db.expenses.values()) {
+      if (expense.groupId !== group.id) continue;
+      categoryTotals[expense.category] = (categoryTotals[expense.category] ?? 0) + expense.amountCents;
+    }
+
+    const balances = computeNetBalances(group.id);
+    const suggestedTransfers = simplifyDebts(balances);
+
+    return { group, members, expenses, settlements, balances, suggestedTransfers, categoryTotals };
+  }),
+});
