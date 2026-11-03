@@ -35,9 +35,8 @@ This starts both workspaces:
 Seed data is loaded on server start: three users (Alice, Bob, Carol) and
 one group ("Weekend Trip") with a few example expenses.
 
-You can log in as any of the demo users from the login page, or use the
-"Acting as" picker in the header to switch who you're currently browsing
-as.
+You can log in as any of the demo users from the login page, or use
+Settings → Demo Tools to switch who you're currently browsing as.
 
 ## Project structure
 
@@ -49,7 +48,7 @@ server/
     index.ts      Express app entrypoint
 client/
   src/
-    routes/       page-level components (login, groups list, group detail)
+    routes/       page-level components (login, dashboard, group detail, settings)
     components/   UI components, incl. shadcn/ui primitives in components/ui/
     context/      current-user context
     lib/          tRPC client setup, formatting helpers

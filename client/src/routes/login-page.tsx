@@ -1,89 +1,197 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { useTRPC } from "@/lib/trpc";
-import { useCurrentUser } from "@/context/current-user";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ErrorBanner, FieldError } from "@/components/app/form-parts";
+import { LogoMark } from "@/components/app/logo";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useCurrentUser } from "@/context/current-user";
+import { httpStatusOf, errorMessage } from "@/lib/error-message";
+import { useTRPC } from "@/lib/trpc";
+import { hasErrors, revalidate, type FieldErrors } from "@/lib/validation";
+
+type Values = { username: string; password: string };
+type Errors = FieldErrors<keyof Values>;
+
+const SUCCESS_MOMENT_MS = 1400;
+
+function validate({ username, password }: Values): Errors {
+  const errors: Errors = {};
+  if (!username.trim()) errors.username = "Enter your username";
+  if (!password) errors.password = "Enter your password";
+  return errors;
+}
+
+/** The full-screen success moment, then on to where they were going. */
+function LoginSuccess({ name, to }: { name: string; to: string }) {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const timer = setTimeout(() => navigate(to, { replace: true }), SUCCESS_MOMENT_MS);
+    return () => clearTimeout(timer);
+  }, [navigate, to]);
+  return (
+    <div role="status" className="flex flex-col items-center gap-[18px] py-3 text-center">
+      <span className="flex size-32 items-center justify-center rounded-full bg-primary">
+        <span className="swl-load">
+          <svg viewBox="0 0 40 40" aria-hidden="true">
+            <path d="M9 21l8 8 15-17" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      </span>
+      <h1 className="m-0 [font:600_24px/30px_var(--font-poppins)] text-strong">Welcome Back, {name}</h1>
+      <p className="m-0 [font:400_15px/22px_var(--font-spartan)] text-muted-foreground">You’re logged in.</p>
+      <Button onClick={() => navigate(to, { replace: true })}>Go To Dashboard</Button>
+    </div>
+  );
+}
 
 export function LoginPage() {
   const trpc = useTRPC();
-  const navigate = useNavigate();
-  const { setCurrentUserId } = useCurrentUser();
-  const [step, setStep] = useState<"username" | "password">("username");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const location = useLocation();
+  const { currentUserId, setCurrentUserId } = useCurrentUser();
+  const from = (location.state as { from?: string } | null)?.from ?? "/";
+
+  const [values, setValues] = useState<Values>({ username: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState<Errors>({});
+  const [failures, setFailures] = useState(0);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [loggedInAs, setLoggedInAs] = useState<string | null>(null);
 
   const login = useMutation(
     trpc.auth.login.mutationOptions({
+      meta: { handlesError: true },
       onSuccess: (user) => {
+        setLoggedInAs(user.name);
         setCurrentUserId(user.id);
-        navigate("/welcome", { state: { name: user.name } });
+      },
+      onError: (error) => {
+        setValues((current) => ({ ...current, password: "" }));
+        if (httpStatusOf(error) !== 401) {
+          setAuthError(errorMessage(error));
+          return;
+        }
+        const tries = failures + 1;
+        setFailures(tries);
+        setAuthError(
+          tries >= 3
+            ? "Still not right. Check caps lock, or use one of the demo accounts below."
+            : "Check your username and password for typos and try again."
+        );
       },
     })
   );
 
+  if (currentUserId && !loggedInAs) return <Navigate to={from} replace />;
+
+  function update(patch: Partial<Values>) {
+    const next = { ...values, ...patch };
+    setValues(next);
+    setErrors(revalidate(errors, validate(next)));
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (login.isPending) return;
+    const found = validate(values);
+    setErrors(found);
+    setAuthError(null);
+    if (hasErrors(found)) return;
+    login.mutate({ username: values.username.trim(), password: values.password });
+  }
+
+  const usernameInvalid = Boolean(errors.username || authError);
+  const passwordInvalid = Boolean(errors.password || authError);
+
   return (
-    <div className="mx-auto max-w-sm py-16">
-      <Card>
-        <CardHeader>
-          <CardTitle>Log in</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {step === "username" ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="alice"
-                  autoFocus
-                />
-                <p className="text-xs text-muted-foreground">Demo users: alice, bob, carol (password: username + 123)</p>
-              </div>
-              <Button
-                className="w-full"
-                disabled={username.trim().length === 0}
-                onClick={() => setStep("password")}
-              >
-                Next
+    <main className="box-border flex min-h-screen flex-col items-center justify-center gap-8 bg-screen px-4 py-12 text-on-screen">
+      <div className="flex flex-col items-center gap-3.5 text-center">
+        <span role="img" aria-label="SplitwiseLite" className="flex items-center gap-3.5">
+          <LogoMark size={56} />
+          <span aria-hidden="true" className="whitespace-nowrap [font:700_30px/1_var(--font-poppins)] tracking-[-0.01em]">
+            SplitwiseLite
+          </span>
+        </span>
+        <span className="[font:400_16px/1.3_var(--font-spartan)]">Split costs with friends, minus the awkward maths.</span>
+      </div>
+
+      <div className="box-border flex w-[460px] max-w-full flex-col gap-[22px] rounded-[40px] bg-sheet px-[37px] pt-11 pb-9 text-foreground">
+        {loggedInAs ? (
+          <LoginSuccess name={loggedInAs} to={from} />
+        ) : (
+          <form noValidate onSubmit={submit} aria-labelledby="li-title" className="flex flex-col gap-5">
+            <h1 id="li-title" className="m-0 text-center [font:600_30px/36px_var(--font-poppins)] text-strong">
+              Welcome Back
+            </h1>
+
+            {authError && (
+              <ErrorBanner icon="error" title="That didn’t match">
+                {authError}
+              </ErrorBanner>
+            )}
+
+            <div className="swl-field">
+              <Label htmlFor="li-user">Username</Label>
+              <Input
+                id="li-user"
+                type="text"
+                placeholder="alice"
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                autoFocus
+                invalid={usernameInvalid}
+                aria-describedby={errors.username ? "li-user-err" : undefined}
+                value={values.username}
+                onChange={(event) => update({ username: event.target.value })}
+              />
+              {errors.username && <FieldError id="li-user-err">{errors.username}</FieldError>}
+            </div>
+
+            <div className="swl-field">
+              <Label htmlFor="li-pass">Password</Label>
+              <Input
+                id="li-pass"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                invalid={passwordInvalid}
+                aria-describedby={errors.password ? "li-pass-err" : undefined}
+                value={values.password}
+                onChange={(event) => update({ password: event.target.value })}
+                trailing={
+                  <button
+                    type="button"
+                    className="swl-field__eye"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
+                    onClick={() => setShowPassword((shown) => !shown)}
+                  >
+                    <Icon name={showPassword ? "visibility" : "visibility_off"} size={20} />
+                  </button>
+                }
+              />
+              {errors.password && <FieldError id="li-pass-err">{errors.password}</FieldError>}
+            </div>
+
+            <div className="pt-1">
+              <Button type="submit" block disabled={login.isPending}>
+                {login.isPending ? "Logging In…" : "Log In"}
               </Button>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoFocus
-                />
-                <p className="text-xs text-muted-foreground">Logging in as {username}</p>
-              </div>
-              <Button
-                className="w-full"
-                disabled={password.length === 0 || login.isPending}
-                onClick={() => login.mutate({ username, password })}
-              >
-                {login.isPending ? "Logging in…" : "Log in"}
-              </Button>
-              <button
-                type="button"
-                className="w-full text-center text-xs text-muted-foreground underline"
-                onClick={() => setStep("username")}
-              >
-                Back
-              </button>
+
+            <div className="flex items-start gap-3 rounded-[18px] bg-sunken px-4 py-3.5">
+              <Icon name="info" size={20} />
+              <span className="[font:400_13px/19px_var(--font-poppins)]">
+                Demo accounts: <strong className="font-semibold">alice</strong>,{" "}
+                <strong className="font-semibold">bob</strong> and <strong className="font-semibold">carol</strong>. The
+                password is the username plus 123, e.g. alice123.
+              </span>
             </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+          </form>
+        )}
+      </div>
+    </main>
   );
 }
