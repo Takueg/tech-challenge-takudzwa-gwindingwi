@@ -27,6 +27,7 @@ export function GroupDetailPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [cantDeleteOpen, setCantDeleteOpen] = useState(false);
   const [deleteGroupOpen, setDeleteGroupOpen] = useState(false);
+  const [undoTarget, setUndoTarget] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery(trpc.groups.detail.queryOptions({ groupId: groupId! }));
 
@@ -62,6 +63,18 @@ export function GroupDetailPage() {
       },
       onError: () => {
         toast.error("Couldn't delete expense");
+      },
+    })
+  );
+
+  const undoSettlement = useMutation(
+    trpc.settlements.delete.mutationOptions({
+      onSuccess: () => {
+        invalidateExpenseData();
+        toast.success("Settlement undone");
+      },
+      onError: (error) => {
+        toast.error(error.message);
       },
     })
   );
@@ -235,9 +248,14 @@ export function GroupDetailPage() {
             ) : (
               <ul className="space-y-1">
                 {data.settlements.map((s) => (
-                  <li key={s.id} className="text-sm text-muted-foreground">
-                    {nameOf(s.fromUserId)} paid {nameOf(s.toUserId)} {formatCents(s.amountCents)} on{" "}
-                    {new Date(s.createdAt).toLocaleDateString("de-DE")}
+                  <li key={s.id} className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
+                    <span>
+                      {nameOf(s.fromUserId)} paid {nameOf(s.toUserId)} {formatCents(s.amountCents)} on{" "}
+                      {new Date(s.createdAt).toLocaleDateString("de-DE")}
+                    </span>
+                    <Button size="sm" variant="ghost" onClick={() => setUndoTarget(s.id)}>
+                      Undo
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -296,6 +314,16 @@ export function GroupDetailPage() {
         confirmLabel="Delete"
         destructive
         onConfirm={() => deleteTarget && deleteExpense.mutate({ expenseId: deleteTarget })}
+      />
+
+      <ConfirmDialog
+        open={undoTarget !== null}
+        onOpenChange={(open) => !open && setUndoTarget(null)}
+        title="Undo this settlement?"
+        description="The debt goes back on the balances."
+        confirmLabel="Undo settlement"
+        destructive
+        onConfirm={() => undoTarget && undoSettlement.mutate({ settlementId: undoTarget })}
       />
 
       <ConfirmDialog
