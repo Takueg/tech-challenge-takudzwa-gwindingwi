@@ -10,7 +10,7 @@ import { badRequest, conflict, notFound } from "../lib/errors.js";
 function requireEditableExpense(expenseId: string): Expense {
   const expense = db.expenses.get(expenseId);
   if (!expense) throw notFound(`Expense ${expenseId} not found`);
-  if (expense.archivedAt) throw conflict("Can't change an expense in an archived group");
+  if (db.groups.get(expense.groupId)?.archivedAt) throw conflict("Can't change an expense in an archived group");
   return expense;
 }
 
@@ -93,13 +93,8 @@ export const expensesRouter = router({
     }),
 
   delete: publicProcedure.input(z.object({ expenseId: z.string() })).mutation(({ input }) => {
-    const expense = requireEditableExpense(input.expenseId);
+    requireEditableExpense(input.expenseId);
     db.expenses.delete(input.expenseId);
-    const cached = db.groupExpenseCache.get(expense.groupId) ?? [];
-    db.groupExpenseCache.set(
-      expense.groupId,
-      cached.filter((e) => e.id !== input.expenseId)
-    );
     return { ok: true };
   }),
 });

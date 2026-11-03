@@ -9,7 +9,6 @@ export function resetDb(): void {
   db.groups.clear();
   db.expenses.clear();
   db.settlements.clear();
-  db.groupExpenseCache.clear();
 }
 
 export function makeUser(name: string): User {
@@ -33,7 +32,6 @@ export function makeGroup(name: string, members: User[]): Group {
     createdAt: new Date().toISOString(),
   };
   db.groups.set(group.id, group);
-  db.groupExpenseCache.set(group.id, []);
   return group;
 }
 
@@ -60,7 +58,6 @@ export function addExpense(
     updatedAt: timestamp,
   };
   db.expenses.set(expense.id, expense);
-  db.groupExpenseCache.set(group.id, [...(db.groupExpenseCache.get(group.id) ?? []), expense]);
   return expense;
 }
 

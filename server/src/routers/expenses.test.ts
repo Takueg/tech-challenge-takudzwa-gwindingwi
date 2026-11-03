@@ -11,7 +11,6 @@ beforeEach(() => {
   db.groups.clear();
   db.expenses.clear();
   db.settlements.clear();
-  db.groupExpenseCache.clear();
 
   alice = { id: nextId("user"), name: "Alice", email: "alice@test.com", username: "alice", password: "x" };
   bob = { id: nextId("user"), name: "Bob", email: "bob@test.com", username: "bob", password: "x" };
@@ -25,7 +24,6 @@ beforeEach(() => {
     createdAt: new Date().toISOString(),
   };
   db.groups.set(group.id, group);
-  db.groupExpenseCache.set(group.id, []);
 });
 
 describe("expenses.create", () => {
@@ -535,8 +533,9 @@ describe("expenses in an archived group", () => {
     await caller.groups.archive({ groupId: group.id });
     await caller.groups.unarchive({ groupId: group.id });
 
-    const expense = await caller.expenses.create(createInput());
+    await caller.expenses.create(createInput());
 
-    expect(expense.archivedAt).toBeUndefined();
+    const detail = await caller.groups.detail({ groupId: group.id });
+    expect(detail.expenses.map((e) => e.archivedAt)).toEqual([undefined]);
   });
 });

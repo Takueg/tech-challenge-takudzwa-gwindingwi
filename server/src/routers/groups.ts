@@ -65,7 +65,6 @@ export const groupsRouter = router({
         createdAt: new Date().toISOString(),
       };
       db.groups.set(group.id, group);
-      db.groupExpenseCache.set(group.id, []);
       return group;
     }),
 
@@ -110,19 +109,17 @@ export const groupsRouter = router({
       .filter((u): u is NonNullable<typeof u> => Boolean(u))
       .map(toPublicUser);
 
-    // Read from the per-group cache rather than scanning every expense.
-    const expenses = (db.groupExpenseCache.get(group.id) ?? [])
-      .slice()
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const expenses = Array.from(db.expenses.values())
+      .filter((e) => e.groupId === group.id)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((e) => ({ ...e, archivedAt: group.archivedAt }));
 
     const settlements = Array.from(db.settlements.values())
       .filter((s) => s.groupId === group.id)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
-    // Category totals, computed straight from the source of truth (not the cache above).
     const categoryTotals: Record<string, number> = {};
-    for (const expense of db.expenses.values()) {
-      if (expense.groupId !== group.id) continue;
+    for (const expense of expenses) {
       categoryTotals[expense.category] = (categoryTotals[expense.category] ?? 0) + expense.amountCents;
     }
 

@@ -46,7 +46,6 @@ export type Expense = {
   receiptUrl?: string;
   createdAt: string;
   updatedAt: string;
-  archivedAt?: string;
 };
 
 export type Settlement = {
@@ -63,8 +62,6 @@ export const db = {
   groups: new Map<string, Group>(),
   expenses: new Map<string, Expense>(),
   settlements: new Map<string, Settlement>(),
-  /** Denormalized per-group expense list, kept in sync by `createExpense`, `expenses.delete` and `deleteGroup`. */
-  groupExpenseCache: new Map<string, Expense[]>(),
 };
 
 let idCounter = 0;
@@ -97,7 +94,6 @@ function seed() {
   function makeGroup(name: string, memberIds: string[], createdAt: Date): Group {
     const group: Group = { id: nextId("group"), name, memberIds, createdAt: createdAt.toISOString() };
     db.groups.set(group.id, group);
-    db.groupExpenseCache.set(group.id, []);
     return group;
   }
 
@@ -130,7 +126,6 @@ function seed() {
       updatedAt: date.toISOString(),
     };
     db.expenses.set(expense.id, expense);
-    db.groupExpenseCache.set(group.id, [...(db.groupExpenseCache.get(group.id) ?? []), expense]);
     return expense;
   }
 

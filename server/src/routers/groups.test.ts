@@ -76,7 +76,8 @@ describe("groups.archive and groups.unarchive", () => {
     await expect(caller.groups.archive({ groupId: group.id })).rejects.toThrow(/settle/i);
 
     expect(db.groups.get(group.id)?.archivedAt).toBeUndefined();
-    expect(db.expenses.get(expense.id)?.archivedAt).toBeUndefined();
+    const detail = await caller.groups.detail({ groupId: group.id });
+    expect(detail.expenses.find((e) => e.id === expense.id)?.archivedAt).toBeUndefined();
     expect((await caller.groups.list()).map((g) => g.id)).toEqual([group.id]);
   });
 
@@ -114,18 +115,18 @@ describe("groups.archive and groups.unarchive", () => {
   });
 
   it("archives the group's expenses with the group's timestamp", async () => {
-    const first = addExpense(group, alice, 1000);
-    const second = addExpense(group, bob, 2000);
+    addExpense(group, alice, 1000);
+    addExpense(group, bob, 2000);
     settleUp(group);
 
     const archived = await testCaller().groups.archive({ groupId: group.id });
 
+    const detail = await testCaller().groups.detail({ groupId: group.id });
     expect(archived.archivedAt).toBeTypeOf("string");
-    expect(db.expenses.get(first.id)?.archivedAt).toBe(archived.archivedAt);
-    expect(db.expenses.get(second.id)?.archivedAt).toBe(archived.archivedAt);
+    expect(detail.expenses.map((e) => e.archivedAt)).toEqual([archived.archivedAt, archived.archivedAt]);
   });
 
-  it("shows expenses as archived in the group detail, which reads from the cache", async () => {
+  it("returns archived expenses from the group detail with their archived status", async () => {
     const caller = testCaller();
     addExpense(group, alice, 1000);
     settleUp(group);
@@ -138,22 +139,24 @@ describe("groups.archive and groups.unarchive", () => {
 
   it("restores the group's expenses when unarchived", async () => {
     const caller = testCaller();
-    const expense = addExpense(group, alice, 1000);
+    addExpense(group, alice, 1000);
     settleUp(group);
 
     await caller.groups.archive({ groupId: group.id });
     await caller.groups.unarchive({ groupId: group.id });
 
-    expect(db.expenses.get(expense.id)?.archivedAt).toBeUndefined();
+    const detail = await caller.groups.detail({ groupId: group.id });
+    expect(detail.expenses.map((e) => e.archivedAt)).toEqual([undefined]);
   });
 
   it("does not archive other groups' expenses", async () => {
     const other = makeGroup("Other", [alice, bob]);
-    const kept = addExpense(other, alice, 500);
+    addExpense(other, alice, 500);
 
     await testCaller().groups.archive({ groupId: group.id });
 
-    expect(db.expenses.get(kept.id)?.archivedAt).toBeUndefined();
+    const detail = await testCaller().groups.detail({ groupId: other.id });
+    expect(detail.expenses.map((e) => e.archivedAt)).toEqual([undefined]);
   });
 
   it("rejects an unknown group", async () => {
@@ -348,7 +351,7 @@ describe("groups.delete", () => {
     await expect(caller.groups.detail({ groupId: group.id })).rejects.toThrow(/not found/i);
   });
 
-  it("removes the group's expenses, settlements and cache entry", async () => {
+  it("removes the group's expenses and settlements", async () => {
     addExpense(group, alice, 3000);
     settleUp(group);
 
@@ -356,7 +359,6 @@ describe("groups.delete", () => {
 
     expect(db.expenses.size).toBe(0);
     expect(db.settlements.size).toBe(0);
-    expect(db.groupExpenseCache.has(group.id)).toBe(false);
   });
 
   it("refuses to delete while anyone still owes money, and keeps the ledger", async () => {

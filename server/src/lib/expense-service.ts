@@ -14,7 +14,7 @@ export const createExpenseInput = z.object({
 
 /** Expenses for app-wide views. Balances and group detail read every expense, archived or not. */
 export function listActiveExpenses(): Expense[] {
-  return Array.from(db.expenses.values()).filter((expense) => !expense.archivedAt);
+  return Array.from(db.expenses.values()).filter((expense) => !db.groups.get(expense.groupId)?.archivedAt);
 }
 
 export function computeEqualSplits(amountCents: number, memberIds: string[]): ExpenseSplit[] {
@@ -22,9 +22,7 @@ export function computeEqualSplits(amountCents: number, memberIds: string[]): Ex
 }
 
 export async function createExpense(input: z.infer<typeof createExpenseInput>): Promise<Expense> {
-  // Detection is the only await. Everything after it runs without yielding, so
-  // concurrent creates can't overwrite each other's cache entries, and the
-  // group and membership checks can't go stale.
+  // Detection is the only await, so the group and membership checks after it can't go stale.
   const category = await detectExpenseCategory(input.description);
 
   const group = db.groups.get(input.groupId);
@@ -50,6 +48,5 @@ export async function createExpense(input: z.infer<typeof createExpenseInput>): 
     updatedAt: now,
   };
   db.expenses.set(expense.id, expense);
-  db.groupExpenseCache.set(input.groupId, [...(db.groupExpenseCache.get(input.groupId) ?? []), expense]);
   return expense;
 }

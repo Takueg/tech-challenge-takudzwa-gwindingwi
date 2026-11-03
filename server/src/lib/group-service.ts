@@ -14,23 +14,18 @@ function requireSettled(groupId: string, action: string): void {
   }
 }
 
-function setArchivedAt(group: Group, archivedAt: string | undefined): Group {
-  group.archivedAt = archivedAt;
-  for (const expense of db.expenses.values()) {
-    if (expense.groupId === group.id) expense.archivedAt = archivedAt;
-  }
-  return group;
-}
-
-/** A group and its expenses always archive and restore together, so this is the only place that sets archivedAt. */
+/** An expense's archived status comes from its group, so they can't disagree. */
 export function archiveGroup(groupId: string): Group {
   const group = requireGroup(groupId);
   requireSettled(groupId, "archived");
-  return setArchivedAt(group, new Date().toISOString());
+  group.archivedAt = new Date().toISOString();
+  return group;
 }
 
 export function unarchiveGroup(groupId: string): Group {
-  return setArchivedAt(requireGroup(groupId), undefined);
+  const group = requireGroup(groupId);
+  group.archivedAt = undefined;
+  return group;
 }
 
 /** Refused while anyone owes money, because deleting erases the only record of the debt. */
@@ -38,7 +33,6 @@ export function deleteGroup(groupId: string): void {
   requireGroup(groupId);
   requireSettled(groupId, "deleted");
   db.groups.delete(groupId);
-  db.groupExpenseCache.delete(groupId);
   for (const expense of db.expenses.values()) {
     if (expense.groupId === groupId) db.expenses.delete(expense.id);
   }
