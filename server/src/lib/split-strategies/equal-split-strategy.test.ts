@@ -61,6 +61,11 @@ describe("EqualSplitStrategy", () => {
     }
   });
 
+  it("fails validation with no members, since nobody can carry the cost", () => {
+    const viaInterface: SplitStrategy = strategy;
+    expect(viaInterface.validate({ amountCents: 100, memberIds: [] }).valid).toBe(false);
+  });
+
   it("passes validation with at least one member", () => {
     const viaInterface: SplitStrategy = strategy;
     expect(viaInterface.validate({ amountCents: 100, memberIds: ["a"] }).valid).toBe(true);

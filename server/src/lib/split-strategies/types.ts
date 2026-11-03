@@ -24,7 +24,7 @@ export interface SplitStrategy {
    * registered strategy whose `canHandle` returns true wins.
    */
   canHandle(context: SplitStrategyContext): boolean;
-  /** Called before computeSplits by every call site — not enforced by the type system. */
+  /** Run by `SplitStrategyRegistry.split()` before computeSplits. */
   validate(context: SplitStrategyContext): SplitValidationResult;
   computeSplits(context: SplitStrategyContext): SplitLine[];
 }

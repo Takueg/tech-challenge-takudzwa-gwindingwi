@@ -35,7 +35,10 @@ export function computeNetBalances(groupId: string): NetBalance[] {
   return Array.from(net.entries()).map(([userId, netCents]) => ({ userId, netCents }));
 }
 
-/** Greedy minimal-transfer settlement: largest creditor paid by largest debtor, repeat. */
+/**
+ * Greedy settlement: largest debtor pays largest creditor, repeat. Always settles
+ * everyone in under one transfer per person, but isn't guaranteed to find the fewest.
+ */
 export function simplifyDebts(balances: NetBalance[]): Transfer[] {
   const creditors = balances
     .filter((b) => b.netCents > 0)

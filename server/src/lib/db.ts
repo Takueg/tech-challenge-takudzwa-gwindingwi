@@ -99,8 +99,6 @@ function seed() {
   const bookClub = makeGroup("Book Club", [carol.id, emma.id, henry.id], new Date(2026, 6, 8));
   const lunchCrew = makeGroup("Work Lunch Crew", [dave.id, frank.id, henry.id], new Date(2026, 6, 5));
 
-  const equalSplitStrategy = splitStrategyRegistry.resolveByType("equal");
-
   function addExpense(
     group: Group,
     description: string,
@@ -117,7 +115,7 @@ function seed() {
       currency: "EUR",
       paidByUserId: paidBy.id,
       paidByUserName: paidBy.name,
-      splits: equalSplitStrategy.computeSplits({ amountCents, memberIds: group.memberIds }),
+      splits: splitStrategyRegistry.split("equal", { amountCents, memberIds: group.memberIds }),
       category,
       status: "active",
       createdAt: date.toISOString(),

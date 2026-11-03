@@ -10,6 +10,17 @@ describe("splitStrategyRegistry", () => {
     expect(() => splitStrategyRegistry.resolveByType("percentage")).toThrow(/unknown split strategy/i);
   });
 
+  it("computes splits through split()", () => {
+    expect(splitStrategyRegistry.split("equal", { amountCents: 100, memberIds: ["a", "b"] })).toEqual([
+      { userId: "a", amountCents: 50 },
+      { userId: "b", amountCents: 50 },
+    ]);
+  });
+
+  it("validates before computing, so split() can't skip validation", () => {
+    expect(() => splitStrategyRegistry.split("equal", { amountCents: 100, memberIds: [] })).toThrow(/no members/i);
+  });
+
   it("auto-detects the equal strategy when there is no metadata", () => {
     expect(splitStrategyRegistry.resolve({ amountCents: 100, memberIds: ["a"] }).type).toBe("equal");
   });

@@ -12,7 +12,8 @@ export class EqualSplitStrategy implements SplitStrategy {
     return !context.metadata || Object.keys(context.metadata).length === 0;
   }
 
-  validate(): SplitValidationResult {
+  validate({ memberIds }: SplitStrategyContext): SplitValidationResult {
+    if (memberIds.length === 0) return { valid: false, error: "Can't split an expense between no members" };
     return { valid: true };
   }
 
