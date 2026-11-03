@@ -24,18 +24,13 @@ beforeEach(() => {
 
 describe("errors over HTTP", () => {
   it("returns a readable message for a validation failure, not raw JSON", async () => {
-    const result = await post("users.create", {
-      name: "Dana",
-      email: "foo",
-      username: "dana",
-      password: "secret",
-    });
+    const result = await post("users.update", { userId: "anyone", name: "Dana", email: "foo" });
 
     expect(result).toEqual({ status: 400, message: "email: Invalid email" });
   });
 
   it("explains a blank description", async () => {
-    const result = await post("quickAdd.create", {
+    const result = await post("expenses.create", {
       groupId: "any",
       description: "   ",
       amountCents: 100,
@@ -46,7 +41,7 @@ describe("errors over HTTP", () => {
   });
 
   it("explains an amount that's too large", async () => {
-    const result = await post("quickAdd.create", {
+    const result = await post("expenses.create", {
       groupId: "any",
       description: "Dinner",
       amountCents: Number.MAX_SAFE_INTEGER + 1,
@@ -68,18 +63,14 @@ describe("errors over HTTP", () => {
   });
 
   it("returns 404 for an unknown expense", async () => {
-    const result = await post("expenses.delete", { expenseId: "missing" });
+    const result = await post("expenses.delete", { expenseId: "missing", userId: "anyone" });
     expect(result).toEqual({ status: 404, message: "Expense missing not found" });
   });
 
-  it("returns 409 for a taken username", async () => {
-    makeUser("Alice");
-    const result = await post("users.create", {
-      name: "Other",
-      email: "other@test.com",
-      username: "alice",
-      password: "secret",
-    });
+  it("returns 409 for an email another account uses", async () => {
+    const alice = makeUser("Alice");
+    const bob = makeUser("Bob");
+    const result = await post("users.update", { userId: alice.id, name: "Alice", email: bob.email });
     expect(result.status).toBe(409);
   });
 
@@ -98,7 +89,7 @@ describe("errors over HTTP", () => {
     const group = makeGroup("Trip", [alice]);
     const outsider = makeUser("Outsider");
 
-    const result = await post("quickAdd.create", {
+    const result = await post("expenses.create", {
       groupId: group.id,
       description: "Dinner",
       amountCents: 100,

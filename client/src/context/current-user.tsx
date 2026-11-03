@@ -1,4 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useTRPC } from "@/lib/trpc";
 
 const STORAGE_KEY = "splitwise-lite:current-user-id";
 
@@ -40,4 +42,12 @@ export function useCurrentUser() {
   const ctx = useContext(CurrentUserContext);
   if (!ctx) throw new Error("useCurrentUser must be used within CurrentUserProvider");
   return ctx;
+}
+
+/** The logged-in user's record, plus the full user list it came from. */
+export function useCurrentUserRecord() {
+  const trpc = useTRPC();
+  const { currentUserId } = useCurrentUser();
+  const users = useQuery(trpc.users.list.queryOptions());
+  return { ...users, users: users.data, user: users.data?.find((u) => u.id === currentUserId) };
 }

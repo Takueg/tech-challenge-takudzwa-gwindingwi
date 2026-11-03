@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useCurrentUser } from "@/context/current-user";
 
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { currentUserId } = useCurrentUser();
-  if (!currentUserId) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (!currentUserId) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   return <>{children}</>;
 }

@@ -1,166 +1,169 @@
-import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useTRPC } from "@/lib/trpc";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { useState, type FormEvent } from "react";
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
+import { DialogActions, ErrorBanner, FieldError, FormSummary, TextField } from "@/components/app/form-parts";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
-import { parseAmountToCents } from "@/lib/parse-amount";
+import { Select } from "@/components/ui/select";
+import { useCurrentUser } from "@/context/current-user";
+import { errorMessage, isRejection } from "@/lib/error-message";
 import { formatCents } from "@/lib/format";
-import type { PublicUser } from "server/src/lib/db.js";
+import { notify } from "@/lib/notify";
+import { parseAmount } from "@/lib/parse-amount";
+import { splitSentence } from "@/lib/split-preview";
+import { trpcClient, useTRPC } from "@/lib/trpc";
+import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
+import { useUndo } from "@/lib/use-undo";
+import { errorSummary, hasErrors, revalidate, validateDescription, type FieldErrors } from "@/lib/validation";
 
+type Values = { groupId: string; description: string; amount: string };
+type Errors = FieldErrors<keyof Values>;
+
+function validate(values: Values): Errors {
+  const errors: Errors = {};
+  if (!values.groupId) errors.groupId = "Choose a group";
+  const description = validateDescription(values.description);
+  if (description) errors.description = description;
+  const { error } = parseAmount(values.amount);
+  if (error) errors.amount = error;
+  return errors;
+}
+
+/** Add Expense from the dashboard: the current user is the payer, and they choose the group. */
 export function AddExpenseDialog({
-  groupId,
-  members,
-  nameOf,
+  initialGroupId,
+  onClose,
+  onAdded,
 }: {
-  groupId: string;
-  members: PublicUser[];
-  nameOf: (userId: string) => string;
+  initialGroupId?: string;
+  onClose: () => void;
+  onAdded: (expenseId: string) => void;
 }) {
   const trpc = useTRPC();
-  const invalidateExpenseData = useInvalidateExpenseData();
-  const [open, setOpen] = useState(false);
-  const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
-  const [paidByUserId, setPaidByUserId] = useState("");
+  const invalidate = useInvalidateExpenseData();
+  const undo = useUndo();
+  const { currentUserId } = useCurrentUser();
+  const { data } = useQuery(trpc.groups.list.queryOptions({ userId: currentUserId ?? "" }));
+  const myGroups = data ?? [];
 
-  const createExpense = useMutation(
+  const [values, setValues] = useState<Values>({
+    groupId: myGroups.some((group) => group.id === initialGroupId) ? (initialGroupId as string) : "",
+    description: "",
+    amount: "",
+  });
+  const [errors, setErrors] = useState<Errors>({});
+  const [summary, setSummary] = useState("");
+
+  function update(patch: Partial<Values>) {
+    const next = { ...values, ...patch };
+    setValues(next);
+    if (!hasErrors(errors)) return;
+    const kept = revalidate(errors, validate(next));
+    setErrors(kept);
+    if (!hasErrors(kept)) setSummary("");
+  }
+
+  const selected = myGroups.find((group) => group.id === values.groupId);
+  const amountCents = parseAmount(values.amount).cents;
+  const { data: splits } = useQuery({
+    ...trpc.expenses.previewSplit.queryOptions({ groupId: values.groupId, amountCents: amountCents ?? 1 }),
+    enabled: Boolean(selected && amountCents),
+    placeholderData: keepPreviousData,
+  });
+
+  const create = useMutation(
     trpc.expenses.create.mutationOptions({
-      onSuccess: () => {
-        invalidateExpenseData();
-        setOpen(false);
-        setDescription("");
-        setAmount("");
-        setPaidByUserId("");
+      meta: { handlesError: true },
+      onSuccess: (expense) => {
+        invalidate();
+        onAdded(expense.id);
+        onClose();
+        notify.success({
+          title: "Expense Added",
+          body: `“${expense.description}” · ${formatCents(expense.amountCents)} in ${selected?.name}. Everyone’s balance is updated.`,
+          onUndo: () =>
+            undo(() => trpcClient.expenses.delete.mutate({ expenseId: expense.id, userId: expense.paidByUserId }), {
+              title: "Expense Removed",
+              body: `“${expense.description}” was taken out of ${selected?.name}.`,
+            }),
+        });
       },
     })
   );
 
-  const amountCents = parseAmountToCents(amount);
-  const canSubmit = description.trim().length > 0 && amountCents > 0 && Boolean(paidByUserId);
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (create.isPending || !currentUserId) return;
+    const found = validate(values);
+    setErrors(found);
+    setSummary(errorSummary(found, "add this expense"));
+    if (hasErrors(found)) return;
+    create.mutate({
+      groupId: values.groupId,
+      description: values.description.trim(),
+      amountCents: amountCents as number,
+      paidByUserId: currentUserId,
+    });
+  }
 
-  const { data: serverPreview } = useQuery({
-    ...trpc.expenses.previewSplit.queryOptions({ groupId, amountCents }),
-    enabled: amountCents > 0,
-  });
-
-  const { data: balancePreview } = useQuery({
-    ...trpc.expenses.previewBalances.queryOptions({ groupId, amountCents, paidByUserId }),
-    enabled: amountCents > 0 && Boolean(paidByUserId),
-  });
+  const preview = !selected
+    ? "Choose a group to see how it splits."
+    : !amountCents || !splits?.length
+      ? `Split equally between ${selected.memberIds.length} members of ${selected.name}.`
+      : splitSentence(splits, amountCents, currentUserId);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>Add expense</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add expense</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Input
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Dinner, tickets, taxi…"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="amount">Amount (EUR)</Label>
-            <Input
-              id="amount"
-              inputMode="decimal"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="paid-by">Paid by</Label>
-            <Select value={paidByUserId} onValueChange={setPaidByUserId}>
-              <SelectTrigger id="paid-by" className="w-full">
-                <SelectValue placeholder="Who paid?" />
-              </SelectTrigger>
-              <SelectContent>
-                {members.map((member) => (
-                  <SelectItem key={member.id} value={member.id}>
-                    {member.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <p className="text-xs text-muted-foreground">
-              Split equally among all {members.length} group members:
-            </p>
-          </div>
-
-          {serverPreview && serverPreview.length > 0 && (
-            <div className="space-y-1">
-              <ul className="space-y-0.5 rounded-md bg-muted/40 p-2 text-xs">
-                {serverPreview.map((split) => (
-                  <li key={split.userId} className="flex justify-between">
-                    <span>{nameOf(split.userId)}</span>
-                    <span>{formatCents(split.amountCents)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent title="Add Expense" subtitle="You’re the payer. It’s split equally with the group.">
+        <form noValidate onSubmit={submit} className="flex flex-col gap-[18px]">
+          {create.isError && (
+            <ErrorBanner title="We couldn’t save this expense">
+              {isRejection(create.error)
+                ? errorMessage(create.error)
+                : "Nothing was changed. Your details are still here, so you can try again."}
+            </ErrorBanner>
           )}
-
-          {balancePreview && (
-            <div className="space-y-2 border-t pt-3">
-              <p className="text-xs font-medium">After this expense</p>
-              <ul className="space-y-0.5 text-xs">
-                {balancePreview.balances.map((b) => (
-                  <li key={b.userId} className="flex justify-between">
-                    <span>{nameOf(b.userId)}</span>
-                    <span className={b.netCents >= 0 ? "text-emerald-600" : "text-red-600"}>
-                      {b.netCents === 0
-                        ? "settled up"
-                        : b.netCents > 0
-                          ? `is owed ${formatCents(b.netCents)}`
-                          : `owes ${formatCents(-b.netCents)}`}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              {balancePreview.suggestedTransfers.length > 0 && (
-                <ul className="space-y-0.5 text-xs text-muted-foreground">
-                  {balancePreview.suggestedTransfers.map((t, i) => (
-                    <li key={i}>
-                      {nameOf(t.fromUserId)} → {" "}
-                      {nameOf(t.toUserId)}:{" "}
-                      {formatCents(t.amountCents)}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
-        <DialogFooter>
-          <Button
-            disabled={!canSubmit || createExpense.isPending}
-            onClick={() => createExpense.mutate({ groupId, description: description.trim(), amountCents, paidByUserId })}
-          >
-            {createExpense.isPending ? "Adding…" : "Add expense"}
-          </Button>
-        </DialogFooter>
+          <div className="flex flex-col gap-2">
+            <Label id="qa-group-label">Group</Label>
+            <Select
+              aria-labelledby="qa-group-label"
+              aria-describedby={errors.groupId ? "qa-group-err" : undefined}
+              options={myGroups.map((group) => ({ value: group.id, label: group.name }))}
+              placeholder="Choose a group"
+              value={values.groupId}
+              onValueChange={(groupId) => update({ groupId })}
+              invalid={Boolean(errors.groupId)}
+            />
+            {errors.groupId && <FieldError id="qa-group-err">{errors.groupId}</FieldError>}
+          </div>
+          <TextField
+            id="qa-desc"
+            label="What Was It?"
+            placeholder="Pizza night, taxi, tickets…"
+            autoFocus
+            value={values.description}
+            onChange={(event) => update({ description: event.target.value })}
+            error={errors.description}
+          />
+          <TextField
+            id="qa-amount"
+            label="Amount"
+            placeholder="0,00"
+            inputMode="decimal"
+            suffix="€"
+            value={values.amount}
+            onChange={(event) => update({ amount: event.target.value })}
+            error={errors.amount}
+          />
+          <div aria-live="polite" className="rounded-[18px] bg-sheet px-[18px] py-3.5 [font:400_14px/20px_var(--font-poppins)]">
+            {preview}
+          </div>
+          <FormSummary>{summary}</FormSummary>
+          <DialogActions
+            submitLabel={create.isPending ? "Adding…" : create.isError ? "Try Again" : "Add Expense"}
+            pending={create.isPending}
+            onCancel={onClose}
+          />
+        </form>
       </DialogContent>
     </Dialog>
   );

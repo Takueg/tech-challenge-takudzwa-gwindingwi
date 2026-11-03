@@ -15,7 +15,6 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/trpc": "http://localhost:4000",
-      "/export": "http://localhost:4000",
     },
   },
 });

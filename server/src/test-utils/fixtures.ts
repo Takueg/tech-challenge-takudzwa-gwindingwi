@@ -9,6 +9,8 @@ export function resetDb(): void {
   db.groups.clear();
   db.expenses.clear();
   db.settlements.clear();
+  db.deletedExpenses.clear();
+  db.deletedSettlements.clear();
 }
 
 export function makeUser(name: string): User {

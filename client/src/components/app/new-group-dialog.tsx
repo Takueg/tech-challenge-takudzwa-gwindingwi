@@ -1,93 +1,114 @@
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, type FormEvent } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { DialogActions, ErrorBanner, TextField } from "@/components/app/form-parts";
+import { MemberPicker } from "@/components/app/member-picker";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useCurrentUser } from "@/context/current-user";
+import { errorMessage, isRejection } from "@/lib/error-message";
+import { notify } from "@/lib/notify";
 import { useTRPC } from "@/lib/trpc";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { NewUserDialog } from "@/components/app/new-user-dialog";
+import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
+import { validateGroupName } from "@/lib/validation";
 
-export function NewGroupDialog() {
+export function NewGroupDialog({ onClose }: { onClose: () => void }) {
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const invalidate = useInvalidateExpenseData();
+  const { currentUserId } = useCurrentUser();
   const { data: users } = useQuery(trpc.users.list.queryOptions());
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [memberIds, setMemberIds] = useState<string[]>([]);
+  const userInput = { userId: currentUserId ?? "" };
+  const { data: groups } = useQuery(trpc.groups.list.queryOptions(userInput));
+  const { data: archived } = useQuery(trpc.groups.listArchived.queryOptions(userInput));
 
-  const createGroup = useMutation(
+  const [name, setName] = useState("");
+  const [members, setMembers] = useState<string[]>([]);
+  const [listOpen, setListOpen] = useState(false);
+  const [nameError, setNameError] = useState<string>();
+  const [membersError, setMembersError] = useState<string>();
+
+  const people = (users ?? []).filter((user) => user.id !== currentUserId);
+  const myGroupNames = [...(groups ?? []), ...(archived ?? [])].map((group) => group.name);
+
+  const create = useMutation(
     trpc.groups.create.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: trpc.groups.list.queryKey() });
-        setOpen(false);
-        setName("");
-        setMemberIds([]);
+      meta: { handlesError: true },
+      onSuccess: (group) => {
+        invalidate();
+        onClose();
+        notify.success({
+          title: "Group Created",
+          body: `“${group.name}” is ready. Add its first expense.`,
+        });
+        navigate(`/groups/${group.id}`);
       },
     })
   );
 
-  const canSubmit = name.trim().length > 0 && memberIds.length > 0;
-
-  function toggleMember(userId: string) {
-    setMemberIds((current) =>
-      current.includes(userId) ? current.filter((id) => id !== userId) : [...current, userId]
-    );
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (create.isPending || !currentUserId) return;
+    const foundName = validateGroupName(name, myGroupNames);
+    const foundMembers = members.length === 0 ? "Pick at least one person to split with" : undefined;
+    setNameError(foundName);
+    setMembersError(foundMembers);
+    if (foundName || foundMembers) return;
+    create.mutate({ name: name.trim(), memberIds: [currentUserId, ...members] });
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline">New group</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>New group</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="group-name">Group name</Label>
-            <Input
-              id="group-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ski trip, Apartment 4B…"
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        width={460}
+        title="New Group"
+        subtitle="You’re added automatically. Pick who you’re splitting with."
+        onEscapeKeyDown={(event) => {
+          if (!listOpen) return;
+          event.preventDefault();
+          setListOpen(false);
+        }}
+      >
+        <form noValidate onSubmit={submit} className="flex flex-col gap-5">
+          {create.isError && (
+            <ErrorBanner title="We couldn’t create this group">
+              {isRejection(create.error)
+                ? errorMessage(create.error)
+                : "Nothing was changed. Your details are still here, so you can try again."}
+            </ErrorBanner>
+          )}
+          <TextField
+            id="ng-name"
+            label="Group Name"
+            placeholder="Ski trip, Apartment 4B…"
+            autoFocus
+            maxLength={60}
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value);
+              if (nameError) setNameError(validateGroupName(event.target.value, myGroupNames));
+            }}
+            error={nameError}
+          />
+          <MemberPicker
+            label="Members"
+            people={people}
+            selected={members}
+            onChange={(ids) => {
+              setMembers(ids);
+              if (ids.length > 0) setMembersError(undefined);
+            }}
+            open={listOpen}
+            onOpenChange={setListOpen}
+            error={membersError}
+          />
+          <div className="pt-1">
+            <DialogActions
+              submitLabel={create.isPending ? "Creating…" : create.isError ? "Try Again" : "Create Group"}
+              pending={create.isPending}
+              onCancel={onClose}
             />
           </div>
-          <div className="space-y-2">
-            <Label>Members</Label>
-            <div className="space-y-2 rounded-md border p-3">
-              {users?.map((user) => (
-                <div key={user.id} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`member-${user.id}`}
-                    checked={memberIds.includes(user.id)}
-                    onCheckedChange={() => toggleMember(user.id)}
-                  />
-                  <Label htmlFor={`member-${user.id}`} className="font-normal">
-                    {user.name}
-                  </Label>
-                </div>
-              ))}
-            </div>
-            <NewUserDialog />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button
-            disabled={!canSubmit || createGroup.isPending}
-            onClick={() => createGroup.mutate({ name: name.trim(), memberIds })}
-          >
-            {createGroup.isPending ? "Creating…" : "Create group"}
-          </Button>
-        </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

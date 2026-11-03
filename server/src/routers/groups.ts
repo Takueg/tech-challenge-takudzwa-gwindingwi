@@ -6,18 +6,28 @@ import { archiveGroup, deleteGroup, unarchiveGroup } from "../lib/group-service.
 import { nonBlankStringSchema } from "../lib/schemas.js";
 import { badRequest, conflict, notFound } from "../lib/errors.js";
 
+const MAX_MEMBERS_PER_REQUEST = 200;
+const userInput = z.object({ userId: z.string() });
+
 function listGroupsWithTotals(includeGroup: (group: Group) => boolean) {
   return Array.from(db.groups.values())
     .filter(includeGroup)
     .map((group) => {
       let expenseCount = 0;
       let totalCents = 0;
+      let lastActivityAt = group.createdAt;
       for (const expense of db.expenses.values()) {
         if (expense.groupId !== group.id) continue;
         expenseCount += 1;
         totalCents += expense.amountCents;
+        if (expense.updatedAt > lastActivityAt) lastActivityAt = expense.updatedAt;
       }
-      return { ...group, expenseCount, totalCents };
+      for (const settlement of db.settlements.values()) {
+        if (settlement.groupId === group.id && settlement.createdAt > lastActivityAt) {
+          lastActivityAt = settlement.createdAt;
+        }
+      }
+      return { ...group, expenseCount, totalCents, lastActivityAt };
     });
 }
 
@@ -35,9 +45,17 @@ function listFormerMembers(group: Group, expenses: Expense[], settlements: Settl
 }
 
 export const groupsRouter = router({
-  list: publicProcedure.query(() => listGroupsWithTotals((group) => !group.archivedAt)),
+  list: publicProcedure
+    .input(userInput)
+    .query(({ input }) =>
+      listGroupsWithTotals((group) => !group.archivedAt && group.memberIds.includes(input.userId))
+    ),
 
-  listArchived: publicProcedure.query(() => listGroupsWithTotals((group) => Boolean(group.archivedAt))),
+  listArchived: publicProcedure
+    .input(userInput)
+    .query(({ input }) =>
+      listGroupsWithTotals((group) => Boolean(group.archivedAt) && group.memberIds.includes(input.userId))
+    ),
 
   archive: publicProcedure.input(z.object({ groupId: z.string() })).mutation(({ input }) => archiveGroup(input.groupId)),
 
@@ -68,30 +86,37 @@ export const groupsRouter = router({
       return group;
     }),
 
-  addMember: publicProcedure
-    .input(z.object({ groupId: z.string(), userId: z.string() }))
+  /** All or nothing, so a bad id can't leave the group half updated. */
+  addMembers: publicProcedure
+    .input(z.object({ groupId: z.string(), userIds: z.array(z.string()).min(1).max(MAX_MEMBERS_PER_REQUEST) }))
     .mutation(({ input }) => {
       const group = db.groups.get(input.groupId);
       if (!group) throw notFound(`Group ${input.groupId} not found`);
-      if (!db.users.has(input.userId)) throw notFound(`User ${input.userId} not found`);
-      if (!group.memberIds.includes(input.userId)) {
-        group.memberIds.push(input.userId);
+      if (group.archivedAt) throw conflict("Can't add members to an archived group");
+      for (const userId of input.userIds) {
+        if (!db.users.has(userId)) throw notFound(`User ${userId} not found`);
       }
+      group.memberIds = [...new Set([...group.memberIds, ...input.userIds])];
       return group;
     }),
 
-  removeMember: publicProcedure
-    .input(z.object({ groupId: z.string(), userId: z.string() }))
+  /** All or nothing, for the same reason as addMembers. */
+  removeMembers: publicProcedure
+    .input(z.object({ groupId: z.string(), userIds: z.array(z.string()).min(1).max(MAX_MEMBERS_PER_REQUEST) }))
     .mutation(({ input }) => {
       const group = db.groups.get(input.groupId);
       if (!group) throw notFound(`Group ${input.groupId} not found`);
-      if (!group.memberIds.includes(input.userId)) throw badRequest("That person isn't a member of this group");
-      if (group.memberIds.length === 1) throw conflict("Can't remove the last member of a group");
-      const balance = computeNetBalances(group.id).find((b) => b.userId === input.userId);
-      if (balance && balance.netCents !== 0) {
+      if (group.archivedAt) throw conflict("Can't remove members from an archived group");
+      if (input.userIds.some((userId) => !group.memberIds.includes(userId))) {
+        throw badRequest("That person isn't a member of this group");
+      }
+      const remaining = group.memberIds.filter((id) => !input.userIds.includes(id));
+      if (remaining.length === 0) throw conflict("Can't remove the last member of a group");
+      const balances = computeNetBalances(group.id);
+      if (balances.some((b) => input.userIds.includes(b.userId) && b.netCents !== 0)) {
         throw conflict("This member still has an outstanding balance. Settle up before removing them.");
       }
-      group.memberIds = group.memberIds.filter((id) => id !== input.userId);
+      group.memberIds = remaining;
       return group;
     }),
 
@@ -100,9 +125,10 @@ export const groupsRouter = router({
     return { ok: true };
   }),
 
-  detail: publicProcedure.input(z.object({ groupId: z.string() })).query(({ input }) => {
+  detail: publicProcedure.input(z.object({ groupId: z.string(), userId: z.string() })).query(({ input }) => {
     const group = db.groups.get(input.groupId);
-    if (!group) throw notFound(`Group ${input.groupId} not found`);
+    // Same error for a stranger as for a missing group, so ids can't be probed.
+    if (!group || !group.memberIds.includes(input.userId)) throw notFound(`Group ${input.groupId} not found`);
 
     const members = group.memberIds
       .map((id) => db.users.get(id))

@@ -1,9 +1,8 @@
+import path from "node:path";
 import express from "express";
 import cors from "cors";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "./routers/index.js";
-import { csvField } from "./lib/csv.js";
-import { db } from "./lib/db.js";
 
 export const app = express();
 app.use(cors());
@@ -15,37 +14,7 @@ app.use(
   })
 );
 
-// Plain REST route, not tRPC — file downloads don't fit the RPC-over-fetch
-// shape tRPC expects, so this bypasses it entirely.
-app.get("/export/groups/:groupId.csv", (req, res) => {
-  const group = db.groups.get(req.params.groupId);
-  if (!group) {
-    res.status(404).send("Group not found");
-    return;
-  }
-  if (group.archivedAt) {
-    res.status(409).send("This group is archived. Unarchive it to export its expenses.");
-    return;
-  }
-
-  const expenses = Array.from(db.expenses.values())
-    .filter((e) => e.groupId === group.id)
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-
-  const rows = [
-    ["Date", "Description", "Category", "Paid by", "Amount (EUR)"],
-    ...expenses.map((e) => [
-      e.createdAt.slice(0, 10),
-      e.description,
-      e.category,
-      e.paidByUserName,
-      (e.amountCents / 100).toFixed(2),
-    ]),
-  ];
-
-  const csv = rows.map((row) => row.map(csvField).join(",")).join("\r\n");
-
-  res.setHeader("Content-Type", "text/csv");
-  res.setHeader("Content-Disposition", `attachment; filename="${group.name.replace(/[^a-z0-9]+/gi, "-")}.csv"`);
-  res.send(csv);
-});
+const clientDist = path.resolve(import.meta.dirname, "../../client/dist");
+app.use(express.static(clientDist));
+// Lets BrowserRouter deep links survive a refresh.
+app.get("*", (_req, res) => res.sendFile(path.join(clientDist, "index.html")));

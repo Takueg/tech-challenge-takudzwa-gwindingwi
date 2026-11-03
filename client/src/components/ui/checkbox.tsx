@@ -1,30 +1,22 @@
-import * as React from "react"
-import { CheckIcon } from "lucide-react"
-import { Checkbox as CheckboxPrimitive } from "radix-ui"
+import * as React from "react";
+import { Checkbox as CheckboxPrimitive } from "radix-ui";
+import { Icon } from "@/components/ui/icon";
 
-import { cn } from "@/lib/utils"
-
+/** 26px box with radius 8, and its label as part of the click target. */
 function Checkbox({
-  className,
+  label,
   ...props
-}: React.ComponentProps<typeof CheckboxPrimitive.Root>) {
+}: React.ComponentProps<typeof CheckboxPrimitive.Root> & { label?: React.ReactNode }) {
   return (
-    <CheckboxPrimitive.Root
-      data-slot="checkbox"
-      className={cn(
-        "peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary",
-        className
-      )}
-      {...props}
-    >
-      <CheckboxPrimitive.Indicator
-        data-slot="checkbox-indicator"
-        className="grid place-content-center text-current transition-none"
-      >
-        <CheckIcon className="size-3.5" />
-      </CheckboxPrimitive.Indicator>
-    </CheckboxPrimitive.Root>
-  )
+    <label className="swl-check">
+      <CheckboxPrimitive.Root data-slot="checkbox" className="swl-check__box" {...props}>
+        <CheckboxPrimitive.Indicator className="flex">
+          <Icon name="check" size={16} />
+        </CheckboxPrimitive.Indicator>
+      </CheckboxPrimitive.Root>
+      {label && <span className="swl-check__label">{label}</span>}
+    </label>
+  );
 }
 
-export { Checkbox }
+export { Checkbox };
