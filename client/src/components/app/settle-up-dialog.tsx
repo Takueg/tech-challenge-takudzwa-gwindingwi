@@ -103,7 +103,7 @@ export function SettleUpDialog({ onClose }: { onClose: () => void }) {
       <DialogContent
         width={520}
         title="Settle Up"
-        subtitle="Record a payment you made or received. This doesn’t send money — pay first, then record it here."
+        subtitle="Record a payment you made or received. This doesn’t send money. Pay first, then record it here."
       >
         {isLoading ? (
           <div role="status" className="flex flex-col gap-3">

@@ -6,9 +6,9 @@ import { EqualSplitStrategy } from "./equal-split-strategy.js";
  * strategies here as they're implemented (percentage, exact amounts, shares).
  *
  * Two ways to get a strategy out:
- *  - `resolveByType` — explicit lookup by `type`, for call sites that
+ *  - `resolveByType`: explicit lookup by `type`, for call sites that
  *    already know which strategy they want.
- *  - `resolve` — auto-detects the right strategy from the input shape via
+ *  - `resolve`: auto-detects the right strategy from the input shape via
  *    each strategy's `canHandle`, for call sites that don't. Registration
  *    order matters here: the first match wins, so a newly registered
  *    strategy needs to be registered ahead of anything whose `canHandle`

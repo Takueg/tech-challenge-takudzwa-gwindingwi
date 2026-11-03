@@ -178,7 +178,7 @@ function ProfileForm({ user, onDone }: { user: User; onDone: () => void }) {
     } catch (error) {
       if (httpStatusOf(error) === 409) {
         setErrors({ email: errorMessage(error) });
-        setSummary("We couldn’t save — check the highlighted field.");
+        setSummary("We couldn’t save. Check the highlighted field.");
       } else {
         setBannerError(errorMessage(error));
       }
@@ -194,8 +194,8 @@ function ProfileForm({ user, onDone }: { user: User; onDone: () => void }) {
   const photoChanged = form.avatar !== saved.avatar;
   const photoHint = photoChanged
     ? form.avatar
-      ? "New photo — save to keep it."
-      : "Photo removed — save to confirm."
+      ? "New photo. Save to keep it."
+      : "Photo removed. Save to confirm."
     : "JPG, PNG or WebP, up to 2 MB.";
 
   return (

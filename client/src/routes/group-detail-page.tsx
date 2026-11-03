@@ -106,7 +106,7 @@ function BalancesTab({
       <div className="flex min-w-0 flex-[999_1_560px] flex-col gap-6">
         <Panel title="Suggested Payments">
           <p className="m-0 [font:400_14px/20px_var(--font-poppins)] text-muted-foreground">
-            The fewest payments that settle everyone. Recording one doesn’t move money — pay outside the app first, then
+            The fewest payments that settle everyone. Recording one doesn’t move money. Pay outside the app first, then
             record it here.
           </p>
           {data.suggestedTransfers.length === 0 ? (
@@ -287,7 +287,7 @@ function MembersTab({
     if (userId === currentUserId) return index === 0 ? "Group creator" : "Member";
     const net = netOf(userId);
     return net === 0
-      ? "Settled up — can be removed"
+      ? "Settled up, can be removed"
       : `Settle their ${formatCents(Math.abs(net))} balance before removing them`;
   };
 

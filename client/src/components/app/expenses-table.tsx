@@ -79,7 +79,7 @@ function ShareCell({ row }: { row: ExpenseRow }) {
     ? `+${formatCents(row.shareCents)}`
     : row.involved
       ? formatCents(row.shareCents)
-      : "—";
+      : formatCents(0);
   return (
     <span role="cell" className="flex flex-col items-end gap-0.5">
       <span className="[font:400_12px/16px_var(--font-poppins)] text-muted-foreground">{label}</span>

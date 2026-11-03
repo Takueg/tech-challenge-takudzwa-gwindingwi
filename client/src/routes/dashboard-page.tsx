@@ -44,7 +44,7 @@ function TotalsHeader({
           </>
         ) : (
           <>
-            <span className="[font:700_36px/1_var(--font-poppins)]">{overview ? formatCents(overview.totalCents) : "–"}</span>
+            <span className="[font:700_36px/1_var(--font-poppins)]">{overview ? formatCents(overview.totalCents) : "-"}</span>
             <span className="[font:400_15px/1.2_var(--font-spartan)]">
               Across {overview?.groupCount ?? 0} {overview?.groupCount === 1 ? "group" : "groups"}
             </span>

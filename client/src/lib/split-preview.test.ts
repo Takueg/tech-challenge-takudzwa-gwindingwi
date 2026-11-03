@@ -29,7 +29,7 @@ describe("splitSentence", () => {
 
 describe("roundingNote", () => {
   it("says when nothing needed rounding", () => {
-    expect(roundingNote(even)).toBe("Splits evenly — no rounding needed.");
+    expect(roundingNote(even)).toBe("Splits evenly, no rounding needed.");
   });
 
   it("uses the singular for one cent", () => {

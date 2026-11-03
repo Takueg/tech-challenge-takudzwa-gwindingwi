@@ -31,6 +31,6 @@ describe("parseAmount", () => {
   });
 
   it("rejects anything over the limit", () => {
-    expect(parseAmount("100.000,01")).toEqual({ error: "That’s over 100.000,00 € — check the amount" });
+    expect(parseAmount("100.000,01")).toEqual({ error: "That’s over 100.000,00 €. Check the amount" });
   });
 });

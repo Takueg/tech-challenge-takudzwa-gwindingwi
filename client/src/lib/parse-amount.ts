@@ -15,6 +15,6 @@ export function parseAmount(raw: string): ParsedAmount {
   const euros = Number(match[1].replace(/\./g, ""));
   const cents = euros * 100 + Number((match[2] ?? "").padEnd(2, "0"));
   if (cents <= 0) return { error: "Amount must be more than 0,00 €" };
-  if (cents > MAX_CENTS) return { error: "That’s over 100.000,00 € — check the amount" };
+  if (cents > MAX_CENTS) return { error: "That’s over 100.000,00 €. Check the amount" };
   return { cents };
 }
