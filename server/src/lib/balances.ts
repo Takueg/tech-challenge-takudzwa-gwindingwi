@@ -1,5 +1,5 @@
 import { db } from "./db.js";
-import { notFound } from "./errors.js";
+import { requireGroup } from "./guards.js";
 
 export type NetBalance = {
   userId: string;
@@ -13,8 +13,7 @@ export type Transfer = {
 };
 
 export function computeNetBalances(groupId: string): NetBalance[] {
-  const group = db.groups.get(groupId);
-  if (!group) throw notFound(`Group ${groupId} not found`);
+  const group = requireGroup(groupId);
 
   const net = new Map<string, number>();
   for (const userId of group.memberIds) net.set(userId, 0);
