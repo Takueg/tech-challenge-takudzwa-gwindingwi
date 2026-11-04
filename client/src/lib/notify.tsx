@@ -15,8 +15,8 @@ function show(kind: Kind, { title, body, onUndo }: ToastContent) {
           <Icon name={GLYPH[kind]} size={18} />
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-[3px] pt-[5px]">
-          <strong className="[font:600_15px/20px_var(--font-poppins)]">{title}</strong>
-          {body && <span className="[font:400_13px/18px_var(--font-poppins)] text-light-green">{body}</span>}
+          <strong className="type-p600-15-20">{title}</strong>
+          {body && <span className="type-p400-13-18 text-light-green">{body}</span>}
         </span>
         {onUndo && (
           <button

@@ -43,13 +43,15 @@ Settings → Demo Tools to switch who you're currently browsing as.
 ```
 server/
   src/
-    lib/          in-memory store, seed data, domain logic (balances, etc.)
+    lib/          in-memory store, seed data, and a *-service.ts for each area
+                  (routers only validate input and call these)
     routers/      tRPC routers (auth, users, groups, expenses, settlements)
     index.ts      Express app entrypoint
 client/
   src/
     routes/       page-level components (login, dashboard, group detail, settings)
     components/   UI components, incl. shadcn/ui primitives in components/ui/
+    hooks/        shared data, mutation and form hooks
     context/      current-user context
     lib/          tRPC client setup, formatting helpers
 ```

@@ -10,7 +10,7 @@ export type User = {
   avatarUrl?: string;
 };
 
-type PublicUser = Omit<User, "password">;
+export type PublicUser = Omit<User, "password">;
 
 /** Every user leaving the API goes through this, so the password never does. */
 export function toPublicUser({ password: _password, ...publicUser }: User): PublicUser {
@@ -64,6 +64,17 @@ export const db = {
   deletedExpenses: new Map<string, Expense>(),
   deletedSettlements: new Map<string, Settlement>(),
 };
+
+export const MAX_DELETED_KEPT = 1000;
+
+/** Keeps a deleted record for Undo, dropping the oldest once there are too many. */
+export function keepDeleted<T extends { id: string }>(store: Map<string, T>, record: T): void {
+  store.set(record.id, record);
+  if (store.size > MAX_DELETED_KEPT) {
+    const oldest = store.keys().next().value;
+    if (oldest !== undefined) store.delete(oldest);
+  }
+}
 
 let idCounter = 0;
 export function nextId(prefix: string): string {

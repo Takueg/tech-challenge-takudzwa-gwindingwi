@@ -4,11 +4,11 @@ import { CommandPalette } from "@/components/app/command-palette";
 import { NewGroupDialog } from "@/components/app/new-group-dialog";
 import { SettleUpDialog } from "@/components/app/settle-up-dialog";
 
-type OpenDialog = { kind: "palette" | "settle" | "group" } | { kind: "add"; groupId?: string } | null;
+type OpenDialog = { kind: "palette" | "add" | "settle" | "group" } | null;
 
 type AppDialogs = {
   openPalette: () => void;
-  openAddExpense: (groupId?: string) => void;
+  openAddExpense: () => void;
   openSettleUp: () => void;
   openNewGroup: () => void;
   /** The expense just added or edited, highlighted briefly in whichever table shows it. */
@@ -37,7 +37,7 @@ export function AppDialogsProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AppDialogs>(
     () => ({
       openPalette: () => setDialog({ kind: "palette" }),
-      openAddExpense: (groupId) => setDialog({ kind: "add", groupId }),
+      openAddExpense: () => setDialog({ kind: "add" }),
       openSettleUp: () => setDialog({ kind: "settle" }),
       openNewGroup: () => setDialog({ kind: "group" }),
       newExpenseId,
@@ -50,7 +50,11 @@ export function AppDialogsProvider({ children }: { children: ReactNode }) {
     function onKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setDialog((current) => (current?.kind === "palette" ? null : { kind: "palette" }));
+        // Toggles the palette, but never replaces a form someone is filling in.
+        setDialog((current) => {
+          if (!current) return { kind: "palette" };
+          return current.kind === "palette" ? null : current;
+        });
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -63,13 +67,13 @@ export function AppDialogsProvider({ children }: { children: ReactNode }) {
       {dialog?.kind === "palette" && (
         <CommandPalette
           onClose={close}
-          onAddExpense={() => value.openAddExpense()}
+          onAddExpense={value.openAddExpense}
           onSettleUp={value.openSettleUp}
           onNewGroup={value.openNewGroup}
         />
       )}
       {dialog?.kind === "add" && (
-        <AddExpenseDialog initialGroupId={dialog.groupId} onClose={close} onAdded={markNewExpense} />
+        <AddExpenseDialog onClose={close} onAdded={markNewExpense} />
       )}
       {dialog?.kind === "settle" && <SettleUpDialog onClose={close} />}
       {dialog?.kind === "group" && <NewGroupDialog onClose={close} />}

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { DialogActions, ErrorBanner, FieldError, FormSummary } from "@/components/app/form-parts";
 import { EmptyState, ErrorState } from "@/components/app/states";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCurrentUser } from "@/context/current-user";
+import { useCurrentUserId } from "@/context/current-user";
+import { useMyDebts } from "@/hooks/use-data";
 import { errorMessage, httpStatusOf } from "@/lib/error-message";
 import { centsToInput, formatCents } from "@/lib/format";
 import { notify } from "@/lib/notify";
@@ -27,10 +28,8 @@ export function SettleUpDialog({ onClose }: { onClose: () => void }) {
   const trpc = useTRPC();
   const invalidate = useInvalidateExpenseData();
   const undo = useUndo();
-  const { currentUserId } = useCurrentUser();
-  const { data: debts, isLoading, isError, refetch } = useQuery(
-    trpc.settlements.suggestedForUser.queryOptions({ userId: currentUserId ?? "" })
-  );
+  const currentUserId = useCurrentUserId();
+  const { data: debts, isLoading, isError, refetch } = useMyDebts();
 
   const [selectedKey, setSelectedKey] = useState("");
   const [amount, setAmount] = useState("");
@@ -150,13 +149,13 @@ export function SettleUpDialog({ onClose }: { onClose: () => void }) {
                           <RadioGroupItem value={key} id={key} />
                           <span className="swl-check__label">{iPay ? `You pay ${debt.toName}` : `${debt.fromName} pays you`}</span>
                         </span>
-                        <span className="pl-8 [font:400_12px/16px_var(--font-poppins)] text-muted-foreground">
+                        <span className="pl-8 type-p400-12-16 text-muted-foreground">
                           {debt.groupName}
                         </span>
                       </span>
                       <span
                         className={cn(
-                          "flex-none [font:600_15px/20px_var(--font-poppins)]",
+                          "flex-none type-p600-15-20",
                           iPay ? "text-accent-ink" : "text-strong"
                         )}
                       >

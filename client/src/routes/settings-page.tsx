@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ErrorBanner, FieldError, TextField } from "@/components/app/form-parts";
 import { HeaderActions, PageLayout } from "@/components/app/page-layout";
 import { Panel } from "@/components/app/panel";
@@ -12,18 +12,19 @@ import { Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SegmentedControl, Tabs } from "@/components/ui/tabs";
-import { useCurrentUser, useCurrentUserRecord } from "@/context/current-user";
+import { useCurrentUser, useCurrentUserId, useCurrentUserRecord } from "@/context/current-user";
+import { useValidatedForm } from "@/hooks/use-validated-form";
+import { useMyGroups } from "@/hooks/use-data";
 import { errorMessage, httpStatusOf } from "@/lib/error-message";
 import { notify } from "@/lib/notify";
 import { setTheme, storedTheme, type Theme } from "@/lib/theme";
 import { useTRPC, type RouterOutputs } from "@/lib/trpc";
 import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
-import { errorSummary, hasErrors, revalidate, validatePhoto, validateProfile, type FieldErrors, type ProfileValues } from "@/lib/validation";
+import { validatePhoto, validateProfile, type ProfileValues } from "@/lib/validation";
 import { cn } from "@/lib/utils";
 
 type User = RouterOutputs["users"]["list"][number];
 type Form = ProfileValues & { avatar: string };
-type Errors = FieldErrors<keyof ProfileValues>;
 
 const toForm = (user: User): Form => ({
   name: user.name,
@@ -68,8 +69,8 @@ function ProfileSkeleton() {
 
 function ProfileView({ user, groupCount, onEdit }: { user: User; groupCount: number; onEdit: () => void }) {
   const tile = "flex flex-col gap-1.5 rounded-[18px] bg-sheet px-[18px] py-4";
-  const term = "[font:500_12px/1_var(--font-poppins)] text-muted-foreground";
-  const value = "m-0 [font:500_15px/22px_var(--font-poppins)] text-strong";
+  const term = "type-p500-12-1 text-muted-foreground";
+  const value = "m-0 type-p500-15-22 text-strong";
   return (
     <Panel
       title="Profile"
@@ -84,8 +85,8 @@ function ProfileView({ user, groupCount, onEdit }: { user: User; groupCount: num
       <div className="flex flex-wrap items-center gap-[22px]">
         <Avatar src={user.avatarUrl || undefined} alt="Your profile photo" size={96} />
         <div className="flex flex-col gap-2">
-          <span className="[font:600_22px/28px_var(--font-poppins)] text-strong">{user.name}</span>
-          <span className="[font:400_14px/20px_var(--font-spartan)] text-muted-foreground">
+          <span className="type-p600-22-28 text-strong">{user.name}</span>
+          <span className="type-s400-14-20 text-muted-foreground">
             Member of {groupCount} {groupCount === 1 ? "group" : "groups"}
           </span>
         </div>
@@ -102,9 +103,9 @@ function ProfileView({ user, groupCount, onEdit }: { user: User; groupCount: num
         <div className={cn(tile, "col-span-2")}>
           <dt className={term}>Bio</dt>
           {user.bio?.trim() ? (
-            <dd className="m-0 [font:400_15px/22px_var(--font-poppins)] whitespace-pre-line text-strong">{user.bio}</dd>
+            <dd className="m-0 type-p400-15-22 whitespace-pre-line text-strong">{user.bio}</dd>
           ) : (
-            <dd className="m-0 [font:400_15px/22px_var(--font-spartan)] text-muted-foreground">
+            <dd className="m-0 type-s400-15-22 text-muted-foreground">
               No bio yet. Add a line so group members recognise you.
             </dd>
           )}
@@ -119,9 +120,16 @@ function ProfileForm({ user, onDone }: { user: User; onDone: () => void }) {
   const queryClient = useQueryClient();
   const invalidate = useInvalidateExpenseData();
   const saved = toForm(user);
-  const [form, setForm] = useState<Form>(saved);
-  const [errors, setErrors] = useState<Errors>({});
-  const [summary, setSummary] = useState("");
+  const {
+    values: form,
+    setValues: setForm,
+    errors,
+    setErrors,
+    summary,
+    setSummary,
+    update: patch,
+    check,
+  } = useValidatedForm<Form, keyof ProfileValues>(saved, validateProfile, "save");
   const [photoError, setPhotoError] = useState("");
   const [bannerError, setBannerError] = useState("");
 
@@ -131,15 +139,6 @@ function ProfileForm({ user, onDone }: { user: User; onDone: () => void }) {
 
   const dirty =
     form.name !== saved.name || form.email !== saved.email || form.bio !== saved.bio || form.avatar !== saved.avatar;
-
-  function patch(change: Partial<Form>) {
-    const next = { ...form, ...change };
-    setForm(next);
-    if (!hasErrors(errors)) return;
-    const kept = revalidate(errors, validateProfile(next));
-    setErrors(kept);
-    if (!hasErrors(kept)) setSummary("");
-  }
 
   function blur(key: "name" | "email") {
     if (form[key] === saved[key] && !errors[key]) return;
@@ -167,11 +166,8 @@ function ProfileForm({ user, onDone }: { user: User; onDone: () => void }) {
   async function save(event: FormEvent) {
     event.preventDefault();
     if (pending) return;
-    const found = validateProfile(form);
-    setErrors(found);
-    setSummary(errorSummary(found, "save"));
     setBannerError("");
-    if (hasErrors(found)) return;
+    if (!check()) return;
     try {
       await updateUser.mutateAsync({ userId: user.id, name: form.name.trim(), email: form.email.trim(), bio: form.bio });
       if (form.avatar !== saved.avatar) await updateAvatar.mutateAsync({ userId: user.id, avatarUrl: form.avatar });
@@ -205,7 +201,7 @@ function ProfileForm({ user, onDone }: { user: User; onDone: () => void }) {
           Edit Profile
         </h2>
         {dirty && (
-          <span role="status" className="inline-flex items-center gap-2 [font:500_13px/1_var(--font-poppins)]">
+          <span role="status" className="inline-flex items-center gap-2 type-p500-13-1">
             <span aria-hidden="true" className="size-2 rounded-full bg-ocean" />
             Unsaved changes
           </span>
@@ -285,7 +281,7 @@ function ProfileForm({ user, onDone }: { user: User; onDone: () => void }) {
           onChange={(event) => patch({ email: event.target.value })}
           onBlur={() => blur("email")}
           error={errors.email}
-          hint="You log in and get group invites with this."
+          hint="People in your groups see this."
         />
       </div>
 
@@ -307,7 +303,7 @@ function ProfileForm({ user, onDone }: { user: User; onDone: () => void }) {
           {errors.bio ? <FieldError>{errors.bio}</FieldError> : <span className="app-hint">Shown to people in your groups.</span>}
           <span
             className={cn(
-              "flex-none pr-4 [font:400_12px/18px_var(--font-poppins)] text-muted-foreground",
+              "flex-none pr-4 type-p400-12-18 text-muted-foreground",
               bioOver && "font-semibold text-danger"
             )}
           >
@@ -324,9 +320,9 @@ function ProfileForm({ user, onDone }: { user: User; onDone: () => void }) {
           Cancel
         </Button>
         {!dirty && !pending && !summary && (
-          <span className="[font:400_13px/18px_var(--font-poppins)] text-muted-foreground">No changes to save</span>
+          <span className="type-p400-13-18 text-muted-foreground">No changes to save</span>
         )}
-        <span role="status" aria-live="polite" className="[font:500_13px/18px_var(--font-poppins)] text-danger">
+        <span role="status" aria-live="polite" className="type-p500-13-18 text-danger">
           {summary}
         </span>
       </div>
@@ -347,7 +343,8 @@ function AppearancePanel() {
 }
 
 function DemoToolsPanel({ users }: { users: User[] }) {
-  const { currentUserId, setCurrentUserId } = useCurrentUser();
+  const currentUserId = useCurrentUserId();
+  const { setCurrentUserId } = useCurrentUser();
   return (
     <Panel title="Demo Tools">
       <div className="flex flex-col gap-2">
@@ -356,7 +353,7 @@ function DemoToolsPanel({ users }: { users: User[] }) {
           inPanel
           aria-labelledby="dm-viewing"
           options={users.map((user) => ({ value: user.id, label: user.name }))}
-          value={currentUserId ?? ""}
+          value={currentUserId}
           onValueChange={(userId) => {
             setCurrentUserId(userId);
             const name = users.find((user) => user.id === userId)?.name;
@@ -370,10 +367,8 @@ function DemoToolsPanel({ users }: { users: User[] }) {
 }
 
 export function SettingsPage() {
-  const trpc = useTRPC();
-  const { currentUserId } = useCurrentUser();
   const { user, users, isLoading, isError, refetch } = useCurrentUserRecord();
-  const groups = useQuery(trpc.groups.list.queryOptions({ userId: currentUserId ?? "" }));
+  const groups = useMyGroups();
   const [editing, setEditing] = useState(false);
   const groupCount = groups.data?.length ?? 0;
 
@@ -383,8 +378,8 @@ export function SettingsPage() {
       header={
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
           <div className="flex flex-col gap-2.5">
-            <h1 className="m-0 [font:600_30px/36px_var(--font-poppins)]">Settings</h1>
-            <p className="m-0 [font:400_16px/1.3_var(--font-spartan)]">Your profile, how the app looks, and your account.</p>
+            <h1 className="m-0 type-p600-30-36">Settings</h1>
+            <p className="m-0 type-s400-16-1_3">Your profile, how the app looks, and your account.</p>
           </div>
           <HeaderActions className="flex-[0_1_560px]" />
         </div>

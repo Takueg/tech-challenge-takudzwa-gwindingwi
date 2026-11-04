@@ -63,11 +63,11 @@ function DialogContent({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1.5 pl-[18px]">
-          <DialogPrimitive.Title className="m-0 [font:700_20px/30px_var(--font-poppins)] text-dialog-title">
+          <DialogPrimitive.Title className="m-0 type-p700-20-30 text-dialog-title">
             {title}
           </DialogPrimitive.Title>
           {subtitle ? (
-            <DialogPrimitive.Description className="m-0 [font:400_15px/20px_var(--font-spartan)] text-dialog-body">
+            <DialogPrimitive.Description className="m-0 type-s400-15-20 text-dialog-body">
               {subtitle}
             </DialogPrimitive.Description>
           ) : (

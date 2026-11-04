@@ -11,7 +11,8 @@ import { SummaryCard, SummaryCardSkeleton } from "@/components/app/summary-card"
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCurrentUser } from "@/context/current-user";
+import { useCurrentUserId } from "@/context/current-user";
+import { useMyBalances, useMyDebts, useMyExpenses, useMyGroups, useUsers } from "@/hooks/use-data";
 import { formatCents } from "@/lib/format";
 import { settleHint } from "@/lib/split-preview";
 import { useTRPC, type RouterOutputs } from "@/lib/trpc";
@@ -31,7 +32,7 @@ function TotalsHeader({
   return (
     <section aria-label="Your totals" className="flex flex-wrap items-center gap-[18px]">
       <div className="flex flex-[1_1_260px] flex-col gap-2.5">
-        <span className="[font:500_13px/1_var(--font-poppins)]">Total Spent</span>
+        <span className="type-p500-13-1">Total Spent</span>
         {loading ? (
           <>
             <span className="sr-only" role="status">
@@ -42,8 +43,8 @@ function TotalsHeader({
           </>
         ) : (
           <>
-            <span className="[font:700_36px/1_var(--font-poppins)]">{overview ? formatCents(overview.totalCents) : "-"}</span>
-            <span className="[font:400_15px/1.2_var(--font-spartan)]">
+            <span className="type-p700-36-1">{overview ? formatCents(overview.totalCents) : "-"}</span>
+            <span className="type-s400-15-1_2">
               {overview
                 ? `Across ${overview.groupCount} ${overview.groupCount === 1 ? "group" : "groups"}`
                 : "Couldn’t load your totals"}
@@ -108,8 +109,8 @@ function GroupCard({
   const label =
     netCents === undefined ? "Balance" : netCents > 0 ? "You’re Owed" : netCents < 0 ? "You Owe" : "All Settled";
   const row = "flex items-baseline justify-between gap-3";
-  const stat = "whitespace-nowrap [font:600_16px/20px_var(--font-poppins)] text-strong";
-  const caption = "[font:400_12px/16px_var(--font-poppins)] text-muted-foreground";
+  const stat = "whitespace-nowrap type-p600-16-20 text-strong";
+  const caption = "type-p400-12-16 text-muted-foreground";
   return (
     <li>
       <Link
@@ -118,8 +119,8 @@ function GroupCard({
       >
         <span className="flex items-start justify-between gap-3">
           <span className="flex min-w-0 flex-col gap-1.5">
-            <span className="[font:600_18px/24px_var(--font-poppins)] text-strong">{group.name}</span>
-            <span className="[font:400_13px/18px_var(--font-poppins)] text-muted-foreground">{memberText}</span>
+            <span className="type-p600-18-24 text-strong">{group.name}</span>
+            <span className="type-p400-13-18 text-muted-foreground">{memberText}</span>
           </span>
           <Icon name="arrow_forward" size={20} />
         </span>
@@ -147,17 +148,17 @@ function GroupCard({
 
 export function DashboardPage() {
   const trpc = useTRPC();
-  const { currentUserId } = useCurrentUser();
+  const currentUserId = useCurrentUserId();
   const { openAddExpense, openSettleUp, openNewGroup, newExpenseId } = useAppDialogs();
-  const userInput = { userId: currentUserId ?? "" };
+  const userInput = { userId: currentUserId };
 
   const overview = useQuery(trpc.stats.overview.queryOptions(userInput));
-  const balances = useQuery(trpc.stats.myBalances.queryOptions(userInput));
-  const debts = useQuery(trpc.settlements.suggestedForUser.queryOptions(userInput));
-  const expenses = useQuery(trpc.expenses.list.queryOptions(userInput));
+  const balances = useMyBalances();
+  const debts = useMyDebts();
+  const expenses = useMyExpenses();
   const leaderboard = useQuery(trpc.stats.leaderboard.queryOptions(userInput));
-  const groups = useQuery(trpc.groups.list.queryOptions(userInput));
-  const users = useQuery(trpc.users.list.queryOptions());
+  const groups = useMyGroups();
+  const users = useUsers();
 
   const headerLoading = overview.isLoading || balances.isLoading;
   const busy = headerLoading || debts.isLoading || expenses.isLoading || groups.isLoading;
@@ -186,15 +187,15 @@ export function DashboardPage() {
         <section aria-label="Quick actions" className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-6">
           <button
             type="button"
-            onClick={() => openAddExpense()}
+            onClick={openAddExpense}
             className="app-card flex cursor-pointer items-center gap-[18px] rounded-[31px] border-0 bg-primary px-6 py-[22px] text-left text-on-primary"
           >
             <span aria-hidden="true" className="flex size-[52px] flex-none items-center justify-center rounded-[18px] bg-honeydew text-ink">
               <Icon name="add" size={24} />
             </span>
             <span className="flex flex-col gap-1">
-              <span className="[font:600_20px/22px_var(--font-poppins)]">Add Expense</span>
-              <span className="[font:400_14px/18px_var(--font-spartan)]">Log something you paid for a group</span>
+              <span className="type-p600-20-22">Add Expense</span>
+              <span className="type-s400-14-18">Log something you paid for a group</span>
             </span>
           </button>
           <button
@@ -206,11 +207,11 @@ export function DashboardPage() {
               <Icon name="handshake" size={24} />
             </span>
             <span className="flex flex-col gap-1">
-              <span className="[font:600_20px/22px_var(--font-poppins)] text-strong">Settle Up</span>
+              <span className="type-p600-20-22 text-strong">Settle Up</span>
               {debts.isLoading ? (
                 <Skeleton line width={170} height={12} className="mt-[3px]" />
               ) : (
-                <span className="[font:400_14px/18px_var(--font-spartan)] text-muted-foreground">
+                <span className="type-s400-14-18 text-muted-foreground">
                   {debts.data ? settleHint(owedBy, owes) : "Couldn’t load your balances"}
                 </span>
               )}
@@ -225,7 +226,7 @@ export function DashboardPage() {
           loading={expenses.isLoading}
           error={expenses.isError}
           onRetry={() => expenses.refetch()}
-          onAdd={() => openAddExpense()}
+          onAdd={openAddExpense}
           exportFileName="splitwise-lite-expenses"
           newId={newExpenseId}
         />
@@ -244,7 +245,7 @@ export function DashboardPage() {
 
         <section aria-labelledby="gr-title" className="flex flex-col gap-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <h2 id="gr-title" className="m-0 [font:600_20px/22px_var(--font-poppins)] text-strong">
+            <h2 id="gr-title" className="m-0 type-p600-20-22 text-strong">
               Your Groups
             </h2>
             <Button variant="secondary" onClick={openNewGroup}>

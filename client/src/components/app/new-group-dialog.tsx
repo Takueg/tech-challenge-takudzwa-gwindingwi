@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { DialogActions, ErrorBanner, TextField } from "@/components/app/form-parts";
+import { DialogActions, SaveErrorBanner, TextField } from "@/components/app/form-parts";
 import { MemberPicker } from "@/components/app/member-picker";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { useCurrentUser } from "@/context/current-user";
-import { errorMessage, isRejection } from "@/lib/error-message";
+import { useCurrentUserId } from "@/context/current-user";
+import { useMyArchivedGroups, useMyGroups, useUsers } from "@/hooks/use-data";
 import { notify } from "@/lib/notify";
 import { useTRPC } from "@/lib/trpc";
 import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
@@ -15,11 +15,10 @@ export function NewGroupDialog({ onClose }: { onClose: () => void }) {
   const trpc = useTRPC();
   const navigate = useNavigate();
   const invalidate = useInvalidateExpenseData();
-  const { currentUserId } = useCurrentUser();
-  const { data: users } = useQuery(trpc.users.list.queryOptions());
-  const userInput = { userId: currentUserId ?? "" };
-  const { data: groups } = useQuery(trpc.groups.list.queryOptions(userInput));
-  const { data: archived } = useQuery(trpc.groups.listArchived.queryOptions(userInput));
+  const currentUserId = useCurrentUserId();
+  const { data: users } = useUsers();
+  const { data: groups } = useMyGroups();
+  const { data: archived } = useMyArchivedGroups();
 
   const [name, setName] = useState("");
   const [members, setMembers] = useState<string[]>([]);
@@ -47,7 +46,7 @@ export function NewGroupDialog({ onClose }: { onClose: () => void }) {
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (create.isPending || !currentUserId) return;
+    if (create.isPending) return;
     const foundName = validateGroupName(name, myGroupNames);
     const foundMembers = members.length === 0 ? "Pick at least one person to split with" : undefined;
     setNameError(foundName);
@@ -70,11 +69,7 @@ export function NewGroupDialog({ onClose }: { onClose: () => void }) {
       >
         <form noValidate onSubmit={submit} className="flex flex-col gap-5">
           {create.isError && (
-            <ErrorBanner title="We couldn’t create this group">
-              {isRejection(create.error)
-                ? errorMessage(create.error)
-                : "Nothing was changed. Your details are still here, so you can try again."}
-            </ErrorBanner>
+            <SaveErrorBanner error={create.error} title="We couldn’t create this group" />
           )}
           <TextField
             id="ng-name"

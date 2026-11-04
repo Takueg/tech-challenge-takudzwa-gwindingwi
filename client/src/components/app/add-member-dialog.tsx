@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { DialogActions, ErrorBanner } from "@/components/app/form-parts";
+import { useMutation } from "@tanstack/react-query";
+import { DialogActions, SaveErrorBanner } from "@/components/app/form-parts";
 import { MemberPicker } from "@/components/app/member-picker";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { errorMessage, isRejection } from "@/lib/error-message";
+import { useUsers } from "@/hooks/use-data";
 import { notify } from "@/lib/notify";
 import { trpcClient, useTRPC } from "@/lib/trpc";
 import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
@@ -27,12 +27,17 @@ export function AddMemberDialog({
   const trpc = useTRPC();
   const invalidate = useInvalidateExpenseData();
   const undo = useUndo();
-  const { data: users } = useQuery(trpc.users.list.queryOptions());
+  const { data: users, isLoading, isError } = useUsers();
   const [userIds, setUserIds] = useState<string[]>([]);
   const [listOpen, setListOpen] = useState(true);
   const [error, setError] = useState("");
 
   const candidates = (users ?? []).filter((user) => !memberIds.includes(user.id));
+  const noPeopleMessage = isLoading
+    ? "Still loading people, one moment"
+    : isError
+      ? "We couldn’t load people. Close this and try again."
+      : ALREADY_IN_GROUP;
 
   const add = useMutation(
     trpc.groups.addMembers.mutationOptions({
@@ -56,7 +61,7 @@ export function AddMemberDialog({
     event.preventDefault();
     if (add.isPending) return;
     if (userIds.length === 0) {
-      setError(candidates.length ? "Choose someone to add" : ALREADY_IN_GROUP);
+      setError(candidates.length ? "Choose someone to add" : noPeopleMessage);
       return;
     }
     add.mutate({ groupId, userIds });
@@ -75,11 +80,11 @@ export function AddMemberDialog({
       >
         <form noValidate onSubmit={submit} className="flex flex-col gap-[18px]">
           {add.isError && (
-            <ErrorBanner title="We couldn’t add these members">
-              {isRejection(add.error)
-                ? errorMessage(add.error)
-                : "Nothing was changed. Your choices are still here, so you can try again."}
-            </ErrorBanner>
+            <SaveErrorBanner
+              error={add.error}
+              title="We couldn’t add these members"
+              fallback="Nothing was changed. Your choices are still here, so you can try again."
+            />
           )}
           <MemberPicker
             label="People"
@@ -92,7 +97,7 @@ export function AddMemberDialog({
             open={listOpen}
             onOpenChange={setListOpen}
             error={error}
-            noPeopleMessage={ALREADY_IN_GROUP}
+            noPeopleMessage={noPeopleMessage}
           />
           <DialogActions
             submitLabel={add.isPending ? "Adding…" : add.isError ? "Try Again" : userIds.length > 1 ? "Add Members" : "Add Member"}

@@ -99,3 +99,37 @@ describe("errors over HTTP", () => {
     expect(result.status).toBe(400);
   });
 });
+
+describe("input limits", () => {
+  it("refuses an expense description over 60 characters", async () => {
+    const alice = makeUser("Alice");
+    const group = makeGroup("Trip", [alice]);
+    const result = await post("expenses.create", {
+      groupId: group.id,
+      description: "x".repeat(61),
+      amountCents: 100,
+      paidByUserId: alice.id,
+    });
+    expect(result).toEqual({ status: 400, message: "description: Keep it under 60 characters" });
+  });
+
+  it("refuses a group name over 40 characters", async () => {
+    const alice = makeUser("Alice");
+    const result = await post("groups.create", { name: "x".repeat(41), memberIds: [alice.id] });
+    expect(result).toEqual({ status: 400, message: "name: Keep the name under 40 characters" });
+  });
+
+  it("refuses a user name over 40 characters and a bio over 160", async () => {
+    const alice = makeUser("Alice");
+    const longName = await post("users.update", { userId: alice.id, name: "x".repeat(41), email: alice.email });
+    const longBio = await post("users.update", { userId: alice.id, name: "A", email: alice.email, bio: "x".repeat(161) });
+    expect(longName.status).toBe(400);
+    expect(longBio).toEqual({ status: 400, message: "bio: Keep your bio under 160 characters" });
+  });
+
+  it("refuses a photo too big to have come from a 2 MB file", async () => {
+    const alice = makeUser("Alice");
+    const result = await post("users.updateAvatar", { userId: alice.id, avatarUrl: "x".repeat(3_000_001) });
+    expect(result).toEqual({ status: 400, message: "avatarUrl: That photo is too big" });
+  });
+});

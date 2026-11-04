@@ -1,15 +1,9 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../trpc.js";
-import { db, toPublicUser } from "../lib/db.js";
-import { unauthorized } from "../lib/errors.js";
+import { logIn } from "../lib/auth-service.js";
 
 export const authRouter = router({
   login: publicProcedure
     .input(z.object({ username: z.string(), password: z.string() }))
-    .mutation(({ input }) => {
-      const user = Array.from(db.users.values()).find((u) => u.username === input.username);
-      // One message for both cases, so login can't be used to discover usernames.
-      if (!user || user.password !== input.password) throw unauthorized("Unknown username or password");
-      return toPublicUser(user);
-    }),
+    .mutation(({ input }) => logIn(input.username, input.password)),
 });
