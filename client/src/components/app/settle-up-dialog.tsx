@@ -149,13 +149,13 @@ export function SettleUpDialog({ onClose }: { onClose: () => void }) {
                           <RadioGroupItem value={key} id={key} />
                           <span className="swl-check__label">{iPay ? `You pay ${debt.toName}` : `${debt.fromName} pays you`}</span>
                         </span>
-                        <span className="pl-8 [font:400_12px/16px_var(--font-poppins)] text-muted-foreground">
+                        <span className="pl-8 type-p400-12-16 text-muted-foreground">
                           {debt.groupName}
                         </span>
                       </span>
                       <span
                         className={cn(
-                          "flex-none [font:600_15px/20px_var(--font-poppins)]",
+                          "flex-none type-p600-15-20",
                           iPay ? "text-accent-ink" : "text-strong"
                         )}
                       >

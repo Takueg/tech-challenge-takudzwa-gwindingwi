@@ -214,7 +214,7 @@ export function ExpenseFormDialog({
                     : "We’ll pick a category from the description"}
                 </span>
               )}
-              <span className="pr-4 [font:400_12px/18px_var(--font-poppins)] text-muted-foreground">
+              <span className="pr-4 type-p400-12-18 text-muted-foreground">
                 {description.length}/60
               </span>
             </div>
@@ -247,23 +247,23 @@ export function ExpenseFormDialog({
             {errors.payerId && <FieldError>{errors.payerId}</FieldError>}
           </div>
           <div aria-live="polite" className="flex flex-col gap-2.5 rounded-[18px] bg-sheet px-[18px] py-4">
-            <span className="[font:500_13px/1_var(--font-poppins)] text-muted-foreground">Each Person’s Share</span>
+            <span className="type-p500-13-1 text-muted-foreground">Each Person’s Share</span>
             {amountCents && splits?.length ? (
               <>
                 <ul className="m-0 flex list-none flex-col gap-2 p-0">
                   {splits.map((split) => (
-                    <li key={split.userId} className="flex justify-between [font:400_14px/20px_var(--font-poppins)]">
+                    <li key={split.userId} className="flex justify-between type-p400-14-20">
                       <span>{nameOf(split.userId)}</span>
                       <span className="font-semibold">{formatCents(split.amountCents)}</span>
                     </li>
                   ))}
                 </ul>
-                <span className="[font:400_12px/16px_var(--font-poppins)] text-muted-foreground">
+                <span className="type-p400-12-16 text-muted-foreground">
                   {roundingNote(splits)}
                 </span>
               </>
             ) : (
-              <span className="[font:400_14px/20px_var(--font-spartan)] text-muted-foreground">
+              <span className="type-s400-14-20 text-muted-foreground">
                 Enter an amount to see the split.
               </span>
             )}

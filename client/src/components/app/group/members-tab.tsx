@@ -31,10 +31,10 @@ export function MembersTab({ data, readOnly }: { data: Detail; readOnly: boolean
           <li key={member.id} className="flex flex-wrap items-center gap-3.5">
             <Initial name={member.name} size={44} className="bg-honeydew text-ink" />
             <span className="flex flex-[1_1_160px] flex-col gap-[3px]">
-              <span className="[font:500_15px/20px_var(--font-poppins)]">
+              <span className="type-p500-15-20">
                 {member.id === currentUserId ? `${member.name} (You)` : member.name}
               </span>
-              <span className="[font:400_13px/18px_var(--font-poppins)] text-muted-foreground">
+              <span className="type-p400-13-18 text-muted-foreground">
                 {memberNote(member.id, index)}
               </span>
             </span>

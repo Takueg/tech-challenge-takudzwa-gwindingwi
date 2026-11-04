@@ -28,7 +28,7 @@ export function GroupOptionsMenu({
   const [alignOffset, setAlignOffset] = useState(0);
   const title = "flex flex-col gap-[3px]";
   const settleFirst = "Everyone needs to settle up first";
-  const description = "[font:400_13px/18px_var(--font-poppins)] text-muted-foreground";
+  const description = "type-p400-13-18 text-muted-foreground";
   return (
     <DropdownMenu.Root
       modal={false}

@@ -13,7 +13,7 @@ function MobileBar() {
     <div className="flex items-center justify-between px-5 pt-5 text-on-screen lg:hidden">
       <span className="flex items-center gap-3">
         <LogoMark />
-        <span className="[font:700_22px/1_var(--font-poppins)] tracking-[-0.01em]">SplitwiseLite</span>
+        <span className="type-p700-22-1 tracking-[-0.01em]">SplitwiseLite</span>
       </span>
       <button type="button" className="app-iconbtn text-on-screen" aria-label="Open menu" onClick={() => setOpen(true)}>
         <Icon name="menu" size={24} />

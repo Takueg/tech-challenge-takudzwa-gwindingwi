@@ -12,7 +12,7 @@ export function ArchivedGroups() {
 
   return (
     <details className="group flex flex-col gap-3">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 [font:600_15px/20px_var(--font-poppins)] text-strong">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 type-p600-15-20 text-strong">
         <Icon name="expand_more" size={20} className="transition-transform group-open:rotate-180" />
         Archived ({archived.length})
       </summary>
@@ -20,7 +20,7 @@ export function ArchivedGroups() {
         {archived.map((group) => (
           <li key={group.id} className="flex flex-wrap items-center gap-3.5 px-1">
             <Icon name="archive" size={20} />
-            <Link to={`/groups/${group.id}`} className="min-w-0 flex-1 truncate [font:500_15px/20px_var(--font-poppins)] text-foreground">
+            <Link to={`/groups/${group.id}`} className="min-w-0 flex-1 truncate type-p500-15-20 text-foreground">
               {group.name}
             </Link>
             <Button

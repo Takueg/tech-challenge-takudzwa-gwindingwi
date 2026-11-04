@@ -60,7 +60,7 @@ export function SideNav({ onNavigate, className }: { onNavigate?: () => void; cl
         className="flex items-center gap-3 px-3 pb-[26px] text-on-screen no-underline"
       >
         <LogoMark />
-        <span className="whitespace-nowrap [font:700_22px/1_var(--font-poppins)] tracking-[-0.01em]">SplitwiseLite</span>
+        <span className="whitespace-nowrap type-p700-22-1 tracking-[-0.01em]">SplitwiseLite</span>
       </Link>
 
       <NavLink to="/" end onClick={onNavigate} className={({ isActive }) => navItemClass(isActive)}>
@@ -71,10 +71,10 @@ export function SideNav({ onNavigate, className }: { onNavigate?: () => void; cl
       <div className="relative mt-[18px] mb-1 flex items-center gap-0.5 pl-4">
         <h2
           id="nav-groups"
-          className="m-0 flex flex-1 flex-col gap-1 [font:600_13px/1_var(--font-poppins)] tracking-[.02em]"
+          className="m-0 flex flex-1 flex-col gap-1 type-p600-13-1 tracking-[.02em]"
         >
           Groups
-          <span className="[font:400_12px/1_var(--font-poppins)] tracking-normal">By {sortName}</span>
+          <span className="type-p400-12-1 tracking-normal">By {sortName}</span>
         </h2>
         <DropdownMenu.Root modal={false}>
           <DropdownMenu.Trigger className="app-iconbtn" aria-label={`Sort groups, currently by ${sortName}`} title="Sort groups">
@@ -88,7 +88,7 @@ export function SideNav({ onNavigate, className }: { onNavigate?: () => void; cl
               aria-label="Sort groups"
               className="z-40 box-border flex w-[224px] flex-col gap-0.5 rounded-[20px] bg-dialog p-2 text-foreground"
             >
-              <DropdownMenu.Label className="px-3 pt-2 pb-1.5 [font:600_12px/1_var(--font-poppins)] text-muted-foreground">
+              <DropdownMenu.Label className="px-3 pt-2 pb-1.5 type-p600-12-1 text-muted-foreground">
                 Sort Groups By
               </DropdownMenu.Label>
               <DropdownMenu.RadioGroup value={sort} onValueChange={(value) => setSort(value as SortMode)}>
@@ -135,7 +135,7 @@ export function SideNav({ onNavigate, className }: { onNavigate?: () => void; cl
               >
                 <span
                   aria-hidden="true"
-                  className="flex size-[26px] flex-none items-center justify-center rounded-[9px] bg-honeydew [font:600_12px/1_var(--font-poppins)] text-ink"
+                  className="flex size-[26px] flex-none items-center justify-center rounded-[9px] bg-honeydew type-p600-12-1 text-ink"
                 >
                   {group.name.charAt(0).toUpperCase()}
                 </span>

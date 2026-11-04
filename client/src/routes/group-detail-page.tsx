@@ -150,7 +150,7 @@ function GroupDetail({ groupId }: { groupId: string }) {
               </span>
             ) : (
               <div className="flex items-center gap-1.5">
-                <h1 ref={titleRef} className="m-0 [font:600_30px/36px_var(--font-poppins)]">
+                <h1 ref={titleRef} className="m-0 type-p600-30-36">
                   {data?.group.name}
                 </h1>
                 <GroupOptionsMenu
@@ -176,7 +176,7 @@ function GroupDetail({ groupId }: { groupId: string }) {
                 {data?.members.map((member) => (
                   <span
                     key={member.id}
-                    className="-mr-2 box-border flex size-9 items-center justify-center rounded-full border-2 border-solid border-[var(--caribbean-green)] bg-honeydew [font:600_13px/1_var(--font-poppins)] text-ink"
+                    className="-mr-2 box-border flex size-9 items-center justify-center rounded-full border-2 border-solid border-[var(--caribbean-green)] bg-honeydew type-p600-13-1 text-ink"
                   >
                     {member.name.charAt(0).toUpperCase()}
                   </span>
@@ -216,8 +216,8 @@ function GroupDetail({ groupId }: { groupId: string }) {
           <span aria-hidden="true" className="flex size-[72px] items-center justify-center rounded-3xl bg-sunken">
             <Icon name="delete" size={32} />
           </span>
-          <h2 className="m-0 [font:600_20px/28px_var(--font-poppins)] text-strong">{deletedName} Was Deleted</h2>
-          <p className="m-0 [font:400_15px/22px_var(--font-spartan)] text-muted-foreground">
+          <h2 className="m-0 type-p600-20-28 text-strong">{deletedName} Was Deleted</h2>
+          <p className="m-0 type-s400-15-22 text-muted-foreground">
             Its expenses and payments are gone for everyone in the group.
           </p>
           <Button asChild>
@@ -244,7 +244,7 @@ function GroupDetail({ groupId }: { groupId: string }) {
         {readOnly && (
           <div role="status" className="app-sunken flex flex-wrap items-center gap-3.5 rounded-[22px] bg-sunken px-5 py-4">
             <Icon name="archive" size={24} />
-            <span className="flex-[1_1_280px] [font:400_15px/22px_var(--font-poppins)]">
+            <span className="flex-[1_1_280px] type-p400-15-22">
               <strong className="font-semibold">This group is archived.</strong> It’s hidden from your dashboard and
               read-only. Balances are kept.
             </span>

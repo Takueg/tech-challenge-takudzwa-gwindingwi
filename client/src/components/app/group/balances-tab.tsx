@@ -33,7 +33,7 @@ export function BalancesTab({
     <div className="flex flex-wrap items-start gap-6">
       <div className="flex min-w-0 flex-[999_1_560px] flex-col gap-6">
         <Panel title="Suggested Payments">
-          <p className="m-0 [font:400_14px/20px_var(--font-poppins)] text-muted-foreground">
+          <p className="m-0 type-p400-14-20 text-muted-foreground">
             The fewest payments that settle everyone. Recording one doesn’t move money. Pay outside the app first, then
             record it here.
           </p>
@@ -43,8 +43,8 @@ export function BalancesTab({
                 <Icon name="check" size={24} />
               </span>
               <span className="flex flex-col gap-1">
-                <strong className="[font:600_16px/22px_var(--font-poppins)] text-strong">Everyone’s Settled Up</strong>
-                <span className="[font:400_14px/20px_var(--font-poppins)] text-muted-foreground">
+                <strong className="type-p600-16-22 text-strong">Everyone’s Settled Up</strong>
+                <span className="type-p400-14-20 text-muted-foreground">
                   Nobody owes anything in {data.group.name} right now.
                 </span>
               </span>
@@ -69,8 +69,8 @@ export function BalancesTab({
                       <Initial name={to} size={36} className="bg-primary text-ink" />
                     </span>
                     <span className="flex flex-[1_1_180px] flex-col gap-[3px]">
-                      <span className="[font:500_15px/20px_var(--font-poppins)]">{text}</span>
-                      <span className="[font:600_17px/22px_var(--font-poppins)] text-accent-ink">
+                      <span className="type-p500-15-20">{text}</span>
+                      <span className="type-p600-17-22 text-accent-ink">
                         {formatCents(transfer.amountCents)}
                       </span>
                     </span>
@@ -85,7 +85,7 @@ export function BalancesTab({
         </Panel>
         <Panel title="Payment History">
           {data.settlements.length === 0 ? (
-            <p className="m-0 [font:400_14px/20px_var(--font-spartan)] text-muted-foreground">
+            <p className="m-0 type-s400-14-20 text-muted-foreground">
               No payments recorded yet.
             </p>
           ) : (
@@ -94,12 +94,12 @@ export function BalancesTab({
                 <li key={settlement.id} className="flex items-center gap-3.5">
                   <IconTile icon="handshake" background="var(--ocean-blue)" />
                   <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
-                    <span className="[font:500_15px/20px_var(--font-poppins)]">
+                    <span className="type-p500-15-20">
                       {nameOf(settlement.fromUserId)} paid {nameOf(settlement.toUserId)}
                     </span>
                     <span className="swl-row__time">{formatTimestamp(settlement.createdAt)}</span>
                   </span>
-                  <span className="[font:500_15px/20px_var(--font-poppins)] text-strong">
+                  <span className="type-p500-15-20 text-strong">
                     {formatCents(settlement.amountCents)}
                   </span>
                   <Button
@@ -123,18 +123,18 @@ export function BalancesTab({
             <li key={balance.userId} className="flex items-center gap-3">
               <Initial name={nameOf(balance.userId)} size={40} className="bg-honeydew text-ink" />
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="[font:500_15px/20px_var(--font-poppins)]">{display(balance.userId)}</span>
+                <span className="type-p500-15-20">{display(balance.userId)}</span>
                 {isFormer(balance.userId) && (
-                  <span className="[font:400_12px/16px_var(--font-poppins)] text-muted-foreground">Former member</span>
+                  <span className="type-p400-12-16 text-muted-foreground">Former member</span>
                 )}
               </span>
               <span className="flex flex-col items-end gap-0.5">
-                <span className="[font:400_12px/16px_var(--font-poppins)] text-muted-foreground">
+                <span className="type-p400-12-16 text-muted-foreground">
                   {balance.netCents > 0 ? "Is Owed" : balance.netCents < 0 ? "Owes" : "Settled Up"}
                 </span>
                 <span
                   className={cn(
-                    "[font:600_15px/20px_var(--font-poppins)]",
+                    "type-p600-15-20",
                     balance.netCents < 0 ? "text-accent-ink" : "text-strong"
                   )}
                 >

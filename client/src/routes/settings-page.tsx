@@ -69,8 +69,8 @@ function ProfileSkeleton() {
 
 function ProfileView({ user, groupCount, onEdit }: { user: User; groupCount: number; onEdit: () => void }) {
   const tile = "flex flex-col gap-1.5 rounded-[18px] bg-sheet px-[18px] py-4";
-  const term = "[font:500_12px/1_var(--font-poppins)] text-muted-foreground";
-  const value = "m-0 [font:500_15px/22px_var(--font-poppins)] text-strong";
+  const term = "type-p500-12-1 text-muted-foreground";
+  const value = "m-0 type-p500-15-22 text-strong";
   return (
     <Panel
       title="Profile"
@@ -85,8 +85,8 @@ function ProfileView({ user, groupCount, onEdit }: { user: User; groupCount: num
       <div className="flex flex-wrap items-center gap-[22px]">
         <Avatar src={user.avatarUrl || undefined} alt="Your profile photo" size={96} />
         <div className="flex flex-col gap-2">
-          <span className="[font:600_22px/28px_var(--font-poppins)] text-strong">{user.name}</span>
-          <span className="[font:400_14px/20px_var(--font-spartan)] text-muted-foreground">
+          <span className="type-p600-22-28 text-strong">{user.name}</span>
+          <span className="type-s400-14-20 text-muted-foreground">
             Member of {groupCount} {groupCount === 1 ? "group" : "groups"}
           </span>
         </div>
@@ -103,9 +103,9 @@ function ProfileView({ user, groupCount, onEdit }: { user: User; groupCount: num
         <div className={cn(tile, "col-span-2")}>
           <dt className={term}>Bio</dt>
           {user.bio?.trim() ? (
-            <dd className="m-0 [font:400_15px/22px_var(--font-poppins)] whitespace-pre-line text-strong">{user.bio}</dd>
+            <dd className="m-0 type-p400-15-22 whitespace-pre-line text-strong">{user.bio}</dd>
           ) : (
-            <dd className="m-0 [font:400_15px/22px_var(--font-spartan)] text-muted-foreground">
+            <dd className="m-0 type-s400-15-22 text-muted-foreground">
               No bio yet. Add a line so group members recognise you.
             </dd>
           )}
@@ -201,7 +201,7 @@ function ProfileForm({ user, onDone }: { user: User; onDone: () => void }) {
           Edit Profile
         </h2>
         {dirty && (
-          <span role="status" className="inline-flex items-center gap-2 [font:500_13px/1_var(--font-poppins)]">
+          <span role="status" className="inline-flex items-center gap-2 type-p500-13-1">
             <span aria-hidden="true" className="size-2 rounded-full bg-ocean" />
             Unsaved changes
           </span>
@@ -303,7 +303,7 @@ function ProfileForm({ user, onDone }: { user: User; onDone: () => void }) {
           {errors.bio ? <FieldError>{errors.bio}</FieldError> : <span className="app-hint">Shown to people in your groups.</span>}
           <span
             className={cn(
-              "flex-none pr-4 [font:400_12px/18px_var(--font-poppins)] text-muted-foreground",
+              "flex-none pr-4 type-p400-12-18 text-muted-foreground",
               bioOver && "font-semibold text-danger"
             )}
           >
@@ -320,9 +320,9 @@ function ProfileForm({ user, onDone }: { user: User; onDone: () => void }) {
           Cancel
         </Button>
         {!dirty && !pending && !summary && (
-          <span className="[font:400_13px/18px_var(--font-poppins)] text-muted-foreground">No changes to save</span>
+          <span className="type-p400-13-18 text-muted-foreground">No changes to save</span>
         )}
-        <span role="status" aria-live="polite" className="[font:500_13px/18px_var(--font-poppins)] text-danger">
+        <span role="status" aria-live="polite" className="type-p500-13-18 text-danger">
           {summary}
         </span>
       </div>
@@ -378,8 +378,8 @@ export function SettingsPage() {
       header={
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
           <div className="flex flex-col gap-2.5">
-            <h1 className="m-0 [font:600_30px/36px_var(--font-poppins)]">Settings</h1>
-            <p className="m-0 [font:400_16px/1.3_var(--font-spartan)]">Your profile, how the app looks, and your account.</p>
+            <h1 className="m-0 type-p600-30-36">Settings</h1>
+            <p className="m-0 type-s400-16-1_3">Your profile, how the app looks, and your account.</p>
           </div>
           <HeaderActions className="flex-[0_1_560px]" />
         </div>

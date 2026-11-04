@@ -134,7 +134,7 @@ export function CommandPalette({
         <div id="pal-results" role="listbox" aria-label="Results" className="flex max-h-[420px] flex-col gap-2.5 overflow-y-auto">
           {sections.map((section) => (
             <div key={section.title} role="group" aria-label={section.title} className="flex flex-col gap-0.5">
-              <h3 className="mx-3.5 mt-1.5 mb-1 [font:600_12px/1_var(--font-poppins)] text-muted-foreground">
+              <h3 className="mx-3.5 mt-1.5 mb-1 type-p600-12-1 text-muted-foreground">
                 {section.title}
               </h3>
               {section.items.map((item) => (
@@ -162,13 +162,13 @@ export function CommandPalette({
                     <Icon name={item.icon} size={18} />
                   </span>
                   <span className="flex-1">{item.label}</span>
-                  <span className="[font:400_13px/1_var(--font-poppins)] text-muted-foreground">{item.hint}</span>
+                  <span className="type-p400-13-1 text-muted-foreground">{item.hint}</span>
                 </button>
               ))}
             </div>
           ))}
           {flat.length === 0 && (
-            <p role="status" className="m-0 px-3.5 py-7 text-center [font:400_15px/22px_var(--font-spartan)] text-muted-foreground">
+            <p role="status" className="m-0 px-3.5 py-7 text-center type-s400-15-22 text-muted-foreground">
               Nothing matches “{query}”. Try a group, an expense, or “add”.
             </p>
           )}

@@ -139,7 +139,7 @@ export function AddExpenseDialog({
             onChange={(event) => update({ amount: event.target.value })}
             error={errors.amount}
           />
-          <div aria-live="polite" className="rounded-[18px] bg-sheet px-[18px] py-3.5 [font:400_14px/20px_var(--font-poppins)]">
+          <div aria-live="polite" className="rounded-[18px] bg-sheet px-[18px] py-3.5 type-p400-14-20">
             {preview}
           </div>
           <FormSummary>{summary}</FormSummary>

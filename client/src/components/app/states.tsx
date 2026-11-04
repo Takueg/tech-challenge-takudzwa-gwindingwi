@@ -29,8 +29,8 @@ export function EmptyState({
       >
         <Icon name={icon} size={28} />
       </span>
-      <h3 className="m-0 [font:600_17px/24px_var(--font-poppins)] text-strong">{title}</h3>
-      <p className="m-0 [font:400_14px/20px_var(--font-spartan)] text-muted-foreground">{body}</p>
+      <h3 className="m-0 type-p600-17-24 text-strong">{title}</h3>
+      <p className="m-0 type-s400-14-20 text-muted-foreground">{body}</p>
       {action}
     </div>
   );
@@ -54,8 +54,8 @@ export function ErrorState({
       >
         <Icon name="cloud_off" size={28} />
       </span>
-      <h3 className="m-0 [font:600_17px/24px_var(--font-poppins)] text-strong">{title}</h3>
-      <p className="m-0 [font:400_14px/20px_var(--font-spartan)] text-muted-foreground">
+      <h3 className="m-0 type-p600-17-24 text-strong">{title}</h3>
+      <p className="m-0 type-s400-14-20 text-muted-foreground">
         It might be a connection problem. Your data is safe.
       </p>
       <Button onClick={onRetry}>Try Again</Button>

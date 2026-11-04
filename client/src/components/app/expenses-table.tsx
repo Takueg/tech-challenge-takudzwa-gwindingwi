@@ -82,10 +82,10 @@ function ShareCell({ row }: { row: ExpenseRow }) {
       : formatCents(0);
   return (
     <span role="cell" className="flex flex-col items-end gap-0.5">
-      <span className="[font:400_12px/16px_var(--font-poppins)] text-muted-foreground">{label}</span>
+      <span className="type-p400-12-16 text-muted-foreground">{label}</span>
       <span
         className={cn(
-          "[font:600_15px/20px_var(--font-poppins)]",
+          "type-p600-15-20",
           !row.mine && row.involved ? "text-accent-ink" : "text-strong"
         )}
       >
@@ -264,7 +264,7 @@ export function ExpensesTable({
                     ? `${sorted.length} of ${expenses.length} expenses match`
                     : `${expenses.length} expenses in total`
                 }
-                className="inline-flex h-[26px] items-center rounded-[13px] bg-primary px-2.5 [font:600_13px/1_var(--font-poppins)] text-on-primary"
+                className="inline-flex h-[26px] items-center rounded-[13px] bg-primary px-2.5 type-p600-13-1 text-on-primary"
               >
                 {hasFilters ? `${sorted.length} of ${expenses.length}` : expenses.length}
               </span>
@@ -360,7 +360,7 @@ export function ExpensesTable({
                   <div role="rowgroup">
                     <div
                       role="row"
-                      className={cn(grid, "px-3 pb-2 [font:600_14px/20px_var(--font-poppins)] text-muted-foreground")}
+                      className={cn(grid, "px-3 pb-2 type-p600-14-20 text-muted-foreground")}
                     >
                       <SortHeader label="Expense" column="title" sort={sort} onSort={onSort} />
                       <SortHeader label="Date" column="date" sort={sort} onSort={onSort} />
@@ -384,7 +384,7 @@ export function ExpensesTable({
                             <CategoryTile category={row.category} />
                             <span className="flex min-w-0 flex-col gap-[3px]">
                               <span className="swl-row__title">{row.description}</span>
-                              <span className="[font:400_12px/18px_var(--font-poppins)] text-muted-foreground">
+                              <span className="type-p400-12-18 text-muted-foreground">
                                 {row.category}
                               </span>
                             </span>
@@ -393,19 +393,19 @@ export function ExpensesTable({
                             <span className="swl-row__time text-[13px]">
                               {fresh ? "Today" : formatShortDate(row.createdAt)}
                             </span>
-                            <span className="[font:400_12px/16px_var(--font-poppins)] text-muted-foreground">
+                            <span className="type-p400-12-16 text-muted-foreground">
                               {fresh ? "Just now" : formatClock(row.createdAt)}
                             </span>
                           </span>
                           {showGroup && (
-                            <span role="cell" className="truncate [font:400_14px/20px_var(--font-poppins)]">
+                            <span role="cell" className="truncate type-p400-14-20">
                               {row.groupName}
                             </span>
                           )}
-                          <span role="cell" className="[font:400_14px/20px_var(--font-poppins)]">
+                          <span role="cell" className="type-p400-14-20">
                             {row.mine ? "You" : row.paidByUserName}
                           </span>
-                          <span role="cell" className="text-right [font:500_15px/20px_var(--font-poppins)] text-strong">
+                          <span role="cell" className="text-right type-p500-15-20 text-strong">
                             {formatCents(row.amountCents)}
                           </span>
                           <ShareCell row={row} />
@@ -442,7 +442,7 @@ export function ExpensesTable({
                 </div>
               </div>
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p role="status" aria-live="polite" className="m-0 [font:400_13px/18px_var(--font-poppins)] text-muted-foreground">
+                <p role="status" aria-live="polite" className="m-0 type-p400-13-18 text-muted-foreground">
                   Page {page} of {pageCount}
                 </p>
                 {pageCount > 1 && (

@@ -21,7 +21,7 @@ function AccountMenu() {
     <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger
         aria-label={`${name}, account menu`}
-        className="group flex h-12 flex-none cursor-pointer items-center gap-2.5 rounded-3xl border-0 bg-honeydew pr-3.5 pl-1.5 [font:500_15px/1_var(--font-poppins)] text-ink"
+        className="group flex h-12 flex-none cursor-pointer items-center gap-2.5 rounded-3xl border-0 bg-honeydew pr-3.5 pl-1.5 type-p500-15-1 text-ink"
       >
         <Avatar size={36} src={user?.avatarUrl || undefined} name={name} className="bg-ink" fallbackClassName={avatarColors} />
         <span>{name}</span>
@@ -37,8 +37,8 @@ function AccountMenu() {
           <div className="flex items-center gap-3 px-3.5 pt-2.5 pb-3.5">
             <Avatar size={40} src={user?.avatarUrl || undefined} name={name} className="bg-ink" fallbackClassName={avatarColors} />
             <span className="flex min-w-0 flex-col gap-[3px]">
-              <strong className="[font:600_15px/20px_var(--font-poppins)]">{name}</strong>
-              <span className="truncate [font:400_13px/18px_var(--font-poppins)] text-muted-foreground">{user?.email}</span>
+              <strong className="type-p600-15-20">{name}</strong>
+              <span className="truncate type-p400-13-18 text-muted-foreground">{user?.email}</span>
             </span>
           </div>
           <DropdownMenu.Item className="app-option" onSelect={() => navigate("/settings")}>
@@ -87,7 +87,7 @@ function OfflineBanner() {
   return (
     <div role="alert" className="mb-7 flex flex-wrap items-center gap-3.5 rounded-[22px] bg-danger-soft px-5 py-4 text-danger-ink">
       <Icon name="wifi_off" size={24} />
-      <span className="flex-[1_1_240px] [font:400_14px/20px_var(--font-poppins)]">
+      <span className="flex-[1_1_240px] type-p400-14-20">
         <strong className="font-semibold">You’re offline.</strong> Balances may be out of date. Changes are paused until
         you reconnect.
       </span>
