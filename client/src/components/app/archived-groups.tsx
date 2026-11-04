@@ -1,25 +1,12 @@
-import { useMutation } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { useMyArchivedGroups } from "@/hooks/use-data";
-import { notify } from "@/lib/notify";
-import { useTRPC } from "@/lib/trpc";
-import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
+import { useUnarchiveGroup } from "@/hooks/use-group-actions";
 
 export function ArchivedGroups() {
-  const trpc = useTRPC();
-  const invalidate = useInvalidateExpenseData();
   const { data: archived } = useMyArchivedGroups();
-  const unarchive = useMutation(
-    trpc.groups.unarchive.mutationOptions({
-      meta: { errorTitle: "Couldn’t Unarchive Group" },
-      onSuccess: (group) => {
-        invalidate();
-        notify.success({ title: "Group Unarchived", body: `${group.name} is back on your dashboard.` });
-      },
-    })
-  );
+  const unarchive = useUnarchiveGroup();
 
   if (!archived?.length) return null;
 
