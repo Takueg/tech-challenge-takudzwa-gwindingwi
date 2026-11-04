@@ -1,12 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
-import { DialogActions, ErrorBanner, FieldError, FormSummary } from "@/components/app/form-parts";
+import { DialogActions, SaveErrorBanner, FieldError, FormSummary } from "@/components/app/form-parts";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useCurrentUserId } from "@/context/current-user";
-import { errorMessage, isRejection } from "@/lib/error-message";
+import { useValidatedForm } from "@/hooks/use-validated-form";
 import { centsToInput, formatCents } from "@/lib/format";
 import { notify } from "@/lib/notify";
 import { parseAmount } from "@/lib/parse-amount";
@@ -14,7 +14,7 @@ import { roundingNote } from "@/lib/split-preview";
 import { trpcClient, useTRPC } from "@/lib/trpc";
 import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
 import { useUndo } from "@/lib/use-undo";
-import { errorSummary, hasErrors, revalidate, validateDescription, type FieldErrors } from "@/lib/validation";
+import { validateDescription, type FieldErrors } from "@/lib/validation";
 
 type Values = { description: string; amount: string; payerId: string };
 type Errors = FieldErrors<keyof Values>;
@@ -73,22 +73,15 @@ export function ExpenseFormDialog({
   const currentUserId = useCurrentUserId();
   const editing = Boolean(expense);
 
-  const [values, setValues] = useState<Values>({
-    description: expense?.description ?? "",
-    amount: expense ? centsToInput(expense.amountCents) : "",
-    payerId: expense?.paidByUserId ?? (members.some((m) => m.id === currentUserId) ? currentUserId : ""),
-  });
-  const [errors, setErrors] = useState<Errors>({});
-  const [summary, setSummary] = useState("");
-
-  function update(patch: Partial<Values>) {
-    const next = { ...values, ...patch };
-    setValues(next);
-    if (!hasErrors(errors)) return;
-    const kept = revalidate(errors, validate(next));
-    setErrors(kept);
-    if (!hasErrors(kept)) setSummary("");
-  }
+  const { values, errors, summary, update, check } = useValidatedForm<Values, keyof Values>(
+    {
+      description: expense?.description ?? "",
+      amount: expense ? centsToInput(expense.amountCents) : "",
+      payerId: expense?.paidByUserId ?? (members.some((m) => m.id === currentUserId) ? currentUserId : ""),
+    },
+    validate,
+    "continue"
+  );
 
   const description = values.description.trim();
   const debouncedDescription = useDebounced(description, 300);
@@ -168,10 +161,7 @@ export function ExpenseFormDialog({
   function submit(event: FormEvent) {
     event.preventDefault();
     if (pending) return;
-    const found = validate(values);
-    setErrors(found);
-    setSummary(errorSummary(found, "continue"));
-    if (hasErrors(found)) return;
+    if (!check()) return;
     const fields = { description, amountCents: amountCents as number, paidByUserId: values.payerId };
     if (expense) save.mutate({ expenseId: expense.id, userId: expense.paidByUserId, ...fields });
     else create.mutate({ groupId, ...fields });
@@ -200,11 +190,7 @@ export function ExpenseFormDialog({
       >
         <form noValidate onSubmit={submit} className="flex flex-col gap-[18px]">
           {failure && (
-            <ErrorBanner title="We couldn’t save this expense">
-              {isRejection(failure)
-                ? errorMessage(failure)
-                : "Nothing was changed. Your details are still here, so you can try again."}
-            </ErrorBanner>
+            <SaveErrorBanner error={failure} title="We couldn’t save this expense" />
           )}
           <div className="swl-field">
             <Label htmlFor="ae-desc">Description</Label>

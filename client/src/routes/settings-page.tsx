@@ -13,18 +13,18 @@ import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SegmentedControl, Tabs } from "@/components/ui/tabs";
 import { useCurrentUser, useCurrentUserId, useCurrentUserRecord } from "@/context/current-user";
+import { useValidatedForm } from "@/hooks/use-validated-form";
 import { useMyGroups } from "@/hooks/use-data";
 import { errorMessage, httpStatusOf } from "@/lib/error-message";
 import { notify } from "@/lib/notify";
 import { setTheme, storedTheme, type Theme } from "@/lib/theme";
 import { useTRPC, type RouterOutputs } from "@/lib/trpc";
 import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
-import { errorSummary, hasErrors, revalidate, validatePhoto, validateProfile, type FieldErrors, type ProfileValues } from "@/lib/validation";
+import { validatePhoto, validateProfile, type ProfileValues } from "@/lib/validation";
 import { cn } from "@/lib/utils";
 
 type User = RouterOutputs["users"]["list"][number];
 type Form = ProfileValues & { avatar: string };
-type Errors = FieldErrors<keyof ProfileValues>;
 
 const toForm = (user: User): Form => ({
   name: user.name,
@@ -120,9 +120,16 @@ function ProfileForm({ user, onDone }: { user: User; onDone: () => void }) {
   const queryClient = useQueryClient();
   const invalidate = useInvalidateExpenseData();
   const saved = toForm(user);
-  const [form, setForm] = useState<Form>(saved);
-  const [errors, setErrors] = useState<Errors>({});
-  const [summary, setSummary] = useState("");
+  const {
+    values: form,
+    setValues: setForm,
+    errors,
+    setErrors,
+    summary,
+    setSummary,
+    update: patch,
+    check,
+  } = useValidatedForm<Form, keyof ProfileValues>(saved, validateProfile, "save");
   const [photoError, setPhotoError] = useState("");
   const [bannerError, setBannerError] = useState("");
 
@@ -132,15 +139,6 @@ function ProfileForm({ user, onDone }: { user: User; onDone: () => void }) {
 
   const dirty =
     form.name !== saved.name || form.email !== saved.email || form.bio !== saved.bio || form.avatar !== saved.avatar;
-
-  function patch(change: Partial<Form>) {
-    const next = { ...form, ...change };
-    setForm(next);
-    if (!hasErrors(errors)) return;
-    const kept = revalidate(errors, validateProfile(next));
-    setErrors(kept);
-    if (!hasErrors(kept)) setSummary("");
-  }
 
   function blur(key: "name" | "email") {
     if (form[key] === saved[key] && !errors[key]) return;
@@ -168,11 +166,8 @@ function ProfileForm({ user, onDone }: { user: User; onDone: () => void }) {
   async function save(event: FormEvent) {
     event.preventDefault();
     if (pending) return;
-    const found = validateProfile(form);
-    setErrors(found);
-    setSummary(errorSummary(found, "save"));
     setBannerError("");
-    if (hasErrors(found)) return;
+    if (!check()) return;
     try {
       await updateUser.mutateAsync({ userId: user.id, name: form.name.trim(), email: form.email.trim(), bio: form.bio });
       if (form.avatar !== saved.avatar) await updateAvatar.mutateAsync({ userId: user.id, avatarUrl: form.avatar });
@@ -286,7 +281,7 @@ function ProfileForm({ user, onDone }: { user: User; onDone: () => void }) {
           onChange={(event) => patch({ email: event.target.value })}
           onBlur={() => blur("email")}
           error={errors.email}
-          hint="You log in and get group invites with this."
+          hint="People in your groups see this."
         />
       </div>
 

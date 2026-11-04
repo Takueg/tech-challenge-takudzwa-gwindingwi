@@ -187,7 +187,7 @@ export function DashboardPage() {
         <section aria-label="Quick actions" className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-6">
           <button
             type="button"
-            onClick={() => openAddExpense()}
+            onClick={openAddExpense}
             className="app-card flex cursor-pointer items-center gap-[18px] rounded-[31px] border-0 bg-primary px-6 py-[22px] text-left text-on-primary"
           >
             <span aria-hidden="true" className="flex size-[52px] flex-none items-center justify-center rounded-[18px] bg-honeydew text-ink">
@@ -226,7 +226,7 @@ export function DashboardPage() {
           loading={expenses.isLoading}
           error={expenses.isError}
           onRetry={() => expenses.refetch()}
-          onAdd={() => openAddExpense()}
+          onAdd={openAddExpense}
           exportFileName="splitwise-lite-expenses"
           newId={newExpenseId}
         />

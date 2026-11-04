@@ -1,12 +1,11 @@
 import { useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { DialogActions, ErrorBanner, TextField } from "@/components/app/form-parts";
+import { DialogActions, SaveErrorBanner, TextField } from "@/components/app/form-parts";
 import { MemberPicker } from "@/components/app/member-picker";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useCurrentUserId } from "@/context/current-user";
 import { useMyArchivedGroups, useMyGroups, useUsers } from "@/hooks/use-data";
-import { errorMessage, isRejection } from "@/lib/error-message";
 import { notify } from "@/lib/notify";
 import { useTRPC } from "@/lib/trpc";
 import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
@@ -70,11 +69,7 @@ export function NewGroupDialog({ onClose }: { onClose: () => void }) {
       >
         <form noValidate onSubmit={submit} className="flex flex-col gap-5">
           {create.isError && (
-            <ErrorBanner title="We couldn’t create this group">
-              {isRejection(create.error)
-                ? errorMessage(create.error)
-                : "Nothing was changed. Your details are still here, so you can try again."}
-            </ErrorBanner>
+            <SaveErrorBanner error={create.error} title="We couldn’t create this group" />
           )}
           <TextField
             id="ng-name"

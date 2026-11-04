@@ -1,8 +1,7 @@
 import type { ReactNode, RefObject } from "react";
 import { Dialog, DialogCard, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { DIALOG_BUTTON } from "@/components/app/form-parts";
 import { Button } from "@/components/ui/button";
-
-const DIALOG_BUTTON = "min-w-0 flex-[1_1_160px] px-2";
 
 /** The system Dialog, centred. Only for destructive or irreversible actions. */
 export function ConfirmDialog({

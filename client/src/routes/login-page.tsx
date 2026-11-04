@@ -8,9 +8,10 @@ import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCurrentUser } from "@/context/current-user";
+import { useValidatedForm } from "@/hooks/use-validated-form";
 import { httpStatusOf, errorMessage } from "@/lib/error-message";
 import { useTRPC } from "@/lib/trpc";
-import { hasErrors, revalidate, type FieldErrors } from "@/lib/validation";
+import type { FieldErrors } from "@/lib/validation";
 
 type Values = { username: string; password: string };
 type Errors = FieldErrors<keyof Values>;
@@ -28,22 +29,26 @@ export function LoginPage() {
   const { currentUserId, setCurrentUserId } = useCurrentUser();
   const from = (location.state as { from?: string } | null)?.from ?? "/";
 
-  const [values, setValues] = useState<Values>({ username: "", password: "" });
+  const { values, setValues, errors, update, check } = useValidatedForm<Values, keyof Values>(
+    { username: "", password: "" },
+    validate
+  );
   const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState<Errors>({});
   const [failures, setFailures] = useState(0);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [outage, setOutage] = useState<string | null>(null);
 
   const login = useMutation(
     trpc.auth.login.mutationOptions({
       meta: { handlesError: true },
       onSuccess: (user) => setCurrentUserId(user.id),
       onError: (error) => {
-        setValues((current) => ({ ...current, password: "" }));
+        // An outage isn't a wrong password, so keep what they typed and don't blame the fields.
         if (httpStatusOf(error) !== 401) {
-          setAuthError(errorMessage(error));
+          setOutage(errorMessage(error));
           return;
         }
+        setValues((current) => ({ ...current, password: "" }));
         const tries = failures + 1;
         setFailures(tries);
         setAuthError(
@@ -57,19 +62,12 @@ export function LoginPage() {
 
   if (currentUserId) return <Navigate to={from} replace />;
 
-  function update(patch: Partial<Values>) {
-    const next = { ...values, ...patch };
-    setValues(next);
-    setErrors(revalidate(errors, validate(next)));
-  }
-
   function submit(event: FormEvent) {
     event.preventDefault();
     if (login.isPending) return;
-    const found = validate(values);
-    setErrors(found);
     setAuthError(null);
-    if (hasErrors(found)) return;
+    setOutage(null);
+    if (!check()) return;
     login.mutate({ username: values.username.trim(), password: values.password });
   }
 
@@ -93,6 +91,7 @@ export function LoginPage() {
           <h1 id="li-title" className="m-0 text-center [font:600_30px/36px_var(--font-poppins)] text-strong">
             Welcome Back
           </h1>
+          {outage && <ErrorBanner title="We couldn’t log you in">{outage}</ErrorBanner>}
           {authError && (
             <ErrorBanner icon="error" title="That didn’t match">
               {authError}

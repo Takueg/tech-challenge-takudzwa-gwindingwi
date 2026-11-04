@@ -1,12 +1,12 @@
-import { useState, type FormEvent } from "react";
+import { type FormEvent } from "react";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
-import { DialogActions, ErrorBanner, FieldError, FormSummary, TextField } from "@/components/app/form-parts";
+import { DialogActions, SaveErrorBanner, FieldError, FormSummary, TextField } from "@/components/app/form-parts";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useCurrentUserId } from "@/context/current-user";
 import { useMyGroups } from "@/hooks/use-data";
-import { errorMessage, isRejection } from "@/lib/error-message";
+import { useValidatedForm } from "@/hooks/use-validated-form";
 import { formatCents } from "@/lib/format";
 import { notify } from "@/lib/notify";
 import { parseAmount } from "@/lib/parse-amount";
@@ -14,7 +14,7 @@ import { splitSentence } from "@/lib/split-preview";
 import { trpcClient, useTRPC } from "@/lib/trpc";
 import { useInvalidateExpenseData } from "@/lib/use-invalidate-expense-data";
 import { useUndo } from "@/lib/use-undo";
-import { errorSummary, hasErrors, revalidate, validateDescription, type FieldErrors } from "@/lib/validation";
+import { validateDescription, type FieldErrors } from "@/lib/validation";
 
 type Values = { groupId: string; description: string; amount: string };
 type Errors = FieldErrors<keyof Values>;
@@ -31,11 +31,9 @@ function validate(values: Values): Errors {
 
 /** Add Expense from the dashboard: the current user is the payer, and they choose the group. */
 export function AddExpenseDialog({
-  initialGroupId,
   onClose,
   onAdded,
 }: {
-  initialGroupId?: string;
   onClose: () => void;
   onAdded: (expenseId: string) => void;
 }) {
@@ -46,22 +44,15 @@ export function AddExpenseDialog({
   const { data } = useMyGroups();
   const myGroups = data ?? [];
 
-  const [values, setValues] = useState<Values>({
-    groupId: myGroups.some((group) => group.id === initialGroupId) ? (initialGroupId as string) : "",
-    description: "",
-    amount: "",
-  });
-  const [errors, setErrors] = useState<Errors>({});
-  const [summary, setSummary] = useState("");
-
-  function update(patch: Partial<Values>) {
-    const next = { ...values, ...patch };
-    setValues(next);
-    if (!hasErrors(errors)) return;
-    const kept = revalidate(errors, validate(next));
-    setErrors(kept);
-    if (!hasErrors(kept)) setSummary("");
-  }
+  const { values, errors, summary, update, check } = useValidatedForm<Values, keyof Values>(
+    {
+      groupId: "",
+      description: "",
+      amount: "",
+    },
+    validate,
+    "add this expense"
+  );
 
   const selected = myGroups.find((group) => group.id === values.groupId);
   const amountCents = parseAmount(values.amount).cents;
@@ -94,10 +85,7 @@ export function AddExpenseDialog({
   function submit(event: FormEvent) {
     event.preventDefault();
     if (create.isPending) return;
-    const found = validate(values);
-    setErrors(found);
-    setSummary(errorSummary(found, "add this expense"));
-    if (hasErrors(found)) return;
+    if (!check()) return;
     create.mutate({
       groupId: values.groupId,
       description: values.description.trim(),
@@ -117,11 +105,7 @@ export function AddExpenseDialog({
       <DialogContent title="Add Expense" subtitle="You’re the payer. It’s split equally with the group.">
         <form noValidate onSubmit={submit} className="flex flex-col gap-[18px]">
           {create.isError && (
-            <ErrorBanner title="We couldn’t save this expense">
-              {isRejection(create.error)
-                ? errorMessage(create.error)
-                : "Nothing was changed. Your details are still here, so you can try again."}
-            </ErrorBanner>
+            <SaveErrorBanner error={create.error} title="We couldn’t save this expense" />
           )}
           <div className="flex flex-col gap-2">
             <Label id="qa-group-label">Group</Label>
